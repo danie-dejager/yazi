@@ -8,7 +8,7 @@ Version:  %{version}
 Release:  %{release}
 License:  MIT License
 URL:      https://github.com/sxyazi/yazi
-Source0:  https://github.com/sxyazi/yazi/archive/refs/tags/yazi-v%{version}.tar.gz
+Source0:  https://github.com/sxyazi/yazi/archive/refs/tags/v%{version}.tar.gz
 
 %define debug_package %{nil}
 
