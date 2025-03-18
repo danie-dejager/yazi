@@ -1,17 +1,17 @@
 use std::borrow::Cow;
 
+use mlua::{AsChunk, ChunkMode};
 use yazi_shared::natsort;
 
 pub struct Chunk {
+	pub mode:       ChunkMode,
 	pub bytes:      Cow<'static, [u8]>,
 	pub since:      String,
+	pub sync_peek:  bool,
 	pub sync_entry: bool,
 }
 
 impl Chunk {
-	#[inline]
-	pub fn as_bytes(&self) -> &[u8] { &self.bytes }
-
 	#[inline]
 	pub fn compatible(&self) -> bool {
 		let s = yazi_boot::actions::Actions::version();
@@ -29,6 +29,7 @@ impl Chunk {
 
 			let Some(i) = rest.iter().position(|&b| b == b' ' || b == b'\t') else { break };
 			match (rest[..i].trim_ascii(), rest[i..].trim_ascii()) {
+				(b"@sync", b"peek") => self.sync_peek = true,
 				(b"@sync", b"entry") => self.sync_entry = true,
 
 				(b"@since", b"") => continue,
@@ -44,7 +45,13 @@ impl Chunk {
 
 impl From<Cow<'static, [u8]>> for Chunk {
 	fn from(b: Cow<'static, [u8]>) -> Self {
-		let mut chunk = Self { bytes: b, since: String::new(), sync_entry: false };
+		let mut chunk = Self {
+			mode:       ChunkMode::Text,
+			bytes:      b,
+			since:      String::new(),
+			sync_entry: false,
+			sync_peek:  false,
+		};
 		chunk.analyze();
 		chunk
 	}
@@ -56,4 +63,10 @@ impl From<&'static [u8]> for Chunk {
 
 impl From<Vec<u8>> for Chunk {
 	fn from(b: Vec<u8>) -> Self { Self::from(Cow::Owned(b)) }
+}
+
+impl<'a> AsChunk<'a> for &'a Chunk {
+	fn source(self) -> std::io::Result<Cow<'a, [u8]>> { Ok(Cow::Borrowed(&self.bytes)) }
+
+	fn mode(&self) -> Option<ChunkMode> { Some(self.mode) }
 }
