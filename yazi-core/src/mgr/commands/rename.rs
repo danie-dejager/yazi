@@ -53,12 +53,10 @@ impl Mgr {
 
 		let old = hovered.url_owned();
 		let tab = self.tabs.active().id;
-		tokio::spawn(async move {
-			let mut result = InputProxy::show(InputCfg::rename().with_value(name).with_cursor(cursor));
-			let Some(Ok(name)) = result.recv().await else {
-				return;
-			};
+		let mut input = InputProxy::show(InputCfg::rename().with_value(name).with_cursor(cursor));
 
+		tokio::spawn(async move {
+			let Some(Ok(name)) = input.recv().await else { return };
 			if name.is_empty() {
 				return;
 			}
@@ -84,7 +82,6 @@ impl Mgr {
 			ok_or_not_found(fs::rename(p_new.join(&o), &new).await)?;
 			FilesOp::Deleting(p_new.clone(), HashSet::from_iter([UrnBuf::from(o)])).emit();
 		}
-		Pubsub::pub_from_rename(tab, &old, &new);
 
 		let file = File::from(new.clone()).await?;
 		if p_new == p_old {
@@ -94,7 +91,9 @@ impl Mgr {
 			FilesOp::Upserting(p_new, HashMap::from_iter([(n_new, file)])).emit();
 		}
 
-		Ok(TabProxy::reveal(&new))
+		TabProxy::reveal(&new);
+		Pubsub::pub_from_rename(tab, &old, &new);
+		Ok(())
 	}
 
 	fn empty_url_part(url: &Url, by: &str) -> String {

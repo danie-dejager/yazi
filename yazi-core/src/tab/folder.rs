@@ -1,6 +1,6 @@
 use std::mem;
 
-use yazi_config::{LAYOUT, MGR};
+use yazi_config::{LAYOUT, YAZI};
 use yazi_dds::Pubsub;
 use yazi_fs::{File, Files, FilesOp, FolderStage, Step, cha::Cha};
 use yazi_proxy::MgrProxy;
@@ -24,7 +24,7 @@ impl Default for Folder {
 		Self {
 			url:    Default::default(),
 			cha:    Default::default(),
-			files:  Files::new(MGR.show_hidden),
+			files:  Files::new(YAZI.mgr.show_hidden),
 			stage:  Default::default(),
 			offset: Default::default(),
 			cursor: Default::default(),
@@ -140,9 +140,9 @@ impl Folder {
 		let len = self.files.len();
 
 		let limit = LAYOUT.get().limit();
-		let scrolloff = (limit / 2).min(MGR.scrolloff as usize);
+		let scrolloff = (limit / 2).min(YAZI.mgr.scrolloff as usize);
 
-		self.cursor = new.min(len.saturating_sub(1));
+		self.cursor = new;
 		self.offset = if self.cursor < (self.offset + limit).min(len).saturating_sub(scrolloff) {
 			self.offset.min(len.saturating_sub(1))
 		} else {
@@ -154,16 +154,15 @@ impl Folder {
 
 	fn prev(&mut self, new: usize) -> bool {
 		let old = (self.cursor, self.offset);
-		let max = self.files.len().saturating_sub(1);
 
 		let limit = LAYOUT.get().limit();
-		let scrolloff = (limit / 2).min(MGR.scrolloff as usize);
+		let scrolloff = (limit / 2).min(YAZI.mgr.scrolloff as usize);
 
-		self.cursor = new.min(max);
+		self.cursor = new;
 		self.offset = if self.cursor < self.offset + scrolloff {
 			self.offset.saturating_sub(old.0 - self.cursor)
 		} else {
-			self.offset.min(max)
+			self.offset.min(self.files.len().saturating_sub(1))
 		};
 
 		old != (self.cursor, self.offset)
@@ -174,7 +173,7 @@ impl Folder {
 		let len = self.files.len();
 
 		let limit = LAYOUT.get().limit();
-		let scrolloff = (limit / 2).min(MGR.scrolloff as usize);
+		let scrolloff = (limit / 2).min(YAZI.mgr.scrolloff as usize);
 
 		self.offset = if self.cursor < (self.offset + limit).min(len).saturating_sub(scrolloff) {
 			len.saturating_sub(limit).min(self.offset)

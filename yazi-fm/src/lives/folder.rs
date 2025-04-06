@@ -1,21 +1,27 @@
 use std::ops::{Deref, Range};
 
-use mlua::{AnyUserData, Lua, UserData, UserDataFields};
+use mlua::{AnyUserData, Lua, UserData, UserDataFields, Value};
+use yazi_binding::{FolderStage, Url, cached_field};
 use yazi_config::LAYOUT;
-use yazi_plugin::url::Url;
 
-use super::{File, Files, Lives};
+use super::{File, Files, Lives, PtrCell};
 
 pub(super) struct Folder {
 	window: Range<usize>,
-	inner:  *const yazi_core::tab::Folder,
-	tab:    *const yazi_core::tab::Tab,
+	inner:  PtrCell<yazi_core::tab::Folder>,
+	tab:    PtrCell<yazi_core::tab::Tab>,
+
+	v_cwd:     Option<Value>,
+	v_files:   Option<Value>,
+	v_stage:   Option<Value>,
+	v_window:  Option<Value>,
+	v_hovered: Option<Value>,
 }
 
 impl Deref for Folder {
 	type Target = yazi_core::tab::Folder;
 
-	fn deref(&self) -> &Self::Target { unsafe { &*self.inner } }
+	fn deref(&self) -> &Self::Target { &self.inner }
 }
 
 impl Folder {
@@ -33,32 +39,31 @@ impl Folder {
 			}
 		};
 
-		Lives::scoped_userdata(Self { window, inner, tab })
+		Lives::scoped_userdata(Self {
+			window,
+			inner: inner.into(),
+			tab: tab.into(),
+
+			v_cwd: None,
+			v_files: None,
+			v_stage: None,
+			v_window: None,
+			v_hovered: None,
+		})
 	}
-
-	pub(super) fn register(lua: &Lua) -> mlua::Result<()> {
-		lua.register_userdata_type::<yazi_fs::FolderStage>(|reg| {
-			reg.add_field_method_get("is_loading", |_, me| Ok(*me == yazi_fs::FolderStage::Loading));
-		})?;
-
-		Ok(())
-	}
-
-	#[inline]
-	fn tab(&self) -> &yazi_core::tab::Tab { unsafe { &*self.tab } }
 }
 
 impl UserData for Folder {
 	fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
-		fields.add_field_method_get("cwd", |_, me| Ok(Url(me.url.to_owned())));
-		fields.add_field_method_get("files", |_, me| Files::make(0..me.files.len(), me, me.tab()));
-		fields.add_field_method_get("stage", |lua, me| lua.create_any_userdata(me.stage));
-		fields.add_field_method_get("window", |_, me| Files::make(me.window.clone(), me, me.tab()));
+		cached_field!(fields, cwd, |_, me: &Self| Ok(Url::new(me.url.to_owned())));
+		cached_field!(fields, files, |_, me: &Self| Files::make(0..me.files.len(), me, &me.tab));
+		cached_field!(fields, stage, |_: &Lua, me: &Self| Ok(FolderStage::new(me.stage)));
+		cached_field!(fields, window, |_, me: &Self| Files::make(me.window.clone(), me, &me.tab));
 
 		fields.add_field_method_get("offset", |_, me| Ok(me.offset));
 		fields.add_field_method_get("cursor", |_, me| Ok(me.cursor));
-		fields.add_field_method_get("hovered", |_, me| {
-			me.hovered().map(|_| File::make(me.cursor, me, me.tab())).transpose()
+		cached_field!(fields, hovered, |_, me: &Self| {
+			me.hovered().map(|_| File::make(me.cursor, me, &me.tab)).transpose()
 		});
 	}
 }

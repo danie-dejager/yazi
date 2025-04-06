@@ -4,7 +4,7 @@ use tokio::{pin, task::JoinHandle};
 use tokio_stream::{StreamExt, wrappers::UnboundedReceiverStream};
 use tokio_util::sync::CancellationToken;
 use yazi_adapter::ADAPTOR;
-use yazi_config::PLUGIN;
+use yazi_config::YAZI;
 use yazi_fs::{File, Files, FilesOp, cha::Cha};
 use yazi_macro::render;
 use yazi_plugin::{external::Highlighter, isolate, utils::PreviewLock};
@@ -27,7 +27,7 @@ impl Preview {
 			return;
 		}
 
-		let Some(previewer) = PLUGIN.previewer(&file.url, &mime) else {
+		let Some(previewer) = YAZI.plugin.previewer(&file.url, &mime) else {
 			return self.reset();
 		};
 
@@ -49,7 +49,11 @@ impl Preview {
 		self.folder_loader.take().map(|h| h.abort());
 		self.folder_loader = Some(tokio::spawn(async move {
 			let Some(new) = Files::assert_stale(&wd, dir.unwrap_or(Cha::dummy())).await else { return };
-			let Ok(rx) = Files::from_dir(&wd).await else { return };
+
+			let rx = match Files::from_dir(&wd).await {
+				Ok(rx) => rx,
+				Err(e) => return FilesOp::issue_error(&wd, e.kind()).await,
+			};
 
 			let stream =
 				UnboundedReceiverStream::new(rx).chunks_timeout(50000, Duration::from_millis(500));

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Display};
 
 use anyhow::bail;
-use yazi_config::{open::Opener, popup::InputCfg};
+use yazi_config::{opener::OpenerRule, popup::InputCfg};
 use yazi_proxy::{AppProxy, InputProxy, TasksProxy};
 use yazi_shared::{event::{CmdCow, Data}, url::Url};
 
@@ -54,11 +54,16 @@ impl Tab {
 
 		let cwd = opt.cwd.take().unwrap_or_else(|| self.cwd().clone());
 		let selected = self.hovered_and_selected().cloned().collect();
+
+		let input = opt.interactive.then(|| {
+			InputProxy::show(
+				InputCfg::shell(opt.block).with_value(opt.run.to_owned()).with_cursor(opt.cursor),
+			)
+		});
+
 		tokio::spawn(async move {
-			if opt.interactive {
-				let mut result =
-					InputProxy::show(InputCfg::shell(opt.block).with_value(opt.run).with_cursor(opt.cursor));
-				match result.recv().await {
+			if let Some(mut rx) = input {
+				match rx.recv().await {
 					Some(Ok(e)) => opt.run = Cow::Owned(e),
 					_ => return,
 				}
@@ -68,7 +73,7 @@ impl Tab {
 			}
 
 			TasksProxy::open_with(
-				Cow::Owned(Opener {
+				Cow::Owned(OpenerRule {
 					run:    opt.run.into_owned(),
 					block:  opt.block,
 					orphan: opt.orphan,

@@ -33,7 +33,7 @@ impl Input {
 
 		render!(self.handle_op(opt.step.cursor(snap), false));
 
-		let (limit, snap) = (self.limit(), self.snap_mut());
+		let (limit, snap) = (self.limit, self.snap_mut());
 		if snap.offset > snap.cursor {
 			snap.offset = snap.cursor;
 		} else if snap.value.is_empty() {
@@ -42,8 +42,8 @@ impl Input {
 			let delta = snap.mode.delta();
 			let s = snap.slice(snap.offset..snap.cursor + delta);
 			if s.width() >= limit {
-				let s = s.chars().rev().collect::<String>();
-				snap.offset = snap.cursor - InputSnap::find_window(&s, 0, limit).end.saturating_sub(delta);
+				let range = InputSnap::find_window(s.chars().rev(), 0, limit);
+				snap.offset = snap.cursor - range.end.saturating_sub(delta);
 			}
 		}
 	}

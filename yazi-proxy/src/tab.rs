@@ -17,15 +17,17 @@ impl TabProxy {
 	}
 
 	#[inline]
-	pub fn arrow(step: isize) {
-		emit!(Call(Cmd::args("mgr:arrow", &[step])));
+	pub fn arrow(step: impl AsRef<str>) {
+		emit!(Call(Cmd::args("mgr:arrow", &[step.as_ref()])));
 	}
 
 	#[inline]
 	pub fn search_do(opt: SearchOpt) {
 		emit!(Call(
 			// TODO: use second positional argument instead of `args` parameter
-			Cmd::args("mgr:search_do", &[opt.subject]).with("via", opt.via).with("args", opt.args_raw)
+			Cmd::args("mgr:search_do", &[opt.subject])
+				.with("via", opt.via.as_ref())
+				.with("args", opt.args_raw)
 		));
 	}
 }
