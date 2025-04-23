@@ -1,5 +1,5 @@
 use yazi_macro::emit;
-use yazi_shared::{Id, event::Cmd, url::Url};
+use yazi_shared::{event::Cmd, url::Url};
 
 use crate::options::OpenDoOpt;
 
@@ -17,8 +17,8 @@ impl MgrProxy {
 	}
 
 	#[inline]
-	pub fn hover(url: Option<Url>, tab: Id) {
-		emit!(Call(Cmd::args("mgr:hover", &url.map_or_else(Vec::new, |u| vec![u])).with("tab", tab)));
+	pub fn watch() {
+		emit!(Call(Cmd::new("mgr:watch")));
 	}
 
 	#[inline]

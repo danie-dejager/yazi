@@ -3,7 +3,6 @@ yazi_macro::mod_flat!(
 	close
 	create
 	hardlink
-	hover
 	link
 	open
 	paste
@@ -25,5 +24,6 @@ yazi_macro::mod_flat!(
 	update_paged
 	update_tasks
 	update_yanked
+	watch
 	yank
 );
