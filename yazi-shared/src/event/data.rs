@@ -2,7 +2,7 @@ use std::{any::Any, borrow::Cow, collections::HashMap};
 
 use serde::{Deserialize, Serialize, de};
 
-use crate::{OrderedFloat, url::Url};
+use crate::{Id, OrderedFloat, url::{Url, UrnBuf}};
 
 // --- Data
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,8 +15,11 @@ pub enum Data {
 	String(String),
 	List(Vec<Data>),
 	Dict(HashMap<DataKey, Data>),
+	Id(Id),
 	#[serde(skip_deserializing)]
 	Url(Url),
+	#[serde(skip_deserializing)]
+	Urn(UrnBuf),
 	#[serde(skip)]
 	Bytes(Vec<u8>),
 	#[serde(skip)]
@@ -83,6 +86,18 @@ impl Data {
 	}
 }
 
+impl From<usize> for Data {
+	fn from(value: usize) -> Self { Self::Id(value.into()) }
+}
+
+impl From<String> for Data {
+	fn from(value: String) -> Self { Self::String(value) }
+}
+
+impl From<Id> for Data {
+	fn from(value: Id) -> Self { Self::Id(value) }
+}
+
 // --- Key
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -93,8 +108,11 @@ pub enum DataKey {
 	Integer(i64),
 	Number(OrderedFloat),
 	String(Cow<'static, str>),
+	Id(Id),
 	#[serde(skip_deserializing)]
 	Url(Url),
+	#[serde(skip_deserializing)]
+	Urn(UrnBuf),
 }
 
 impl DataKey {
@@ -157,6 +175,7 @@ macro_rules! impl_integer_as {
 				match self {
 					Data::Integer(i) => <$t>::try_from(*i).ok(),
 					Data::String(s) => s.parse().ok(),
+					Data::Id(i) => <$t>::try_from(i.get()).ok(),
 					_ => None,
 				}
 			}
