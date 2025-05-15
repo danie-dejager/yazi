@@ -1,6 +1,3 @@
-use std::ops::ControlFlow;
-
-use md5::{Digest, Md5};
 use mlua::{Function, Lua, Table};
 use twox_hash::XxHash3_128;
 use unicode_width::UnicodeWidthChar;
@@ -9,17 +6,9 @@ use super::Utils;
 use crate::CLIPBOARD;
 
 impl Utils {
-	pub(super) fn hash(lua: &Lua, deprecated: bool) -> mlua::Result<Function> {
-		lua.create_async_function(move |lua, s: mlua::String| async move {
-			if deprecated {
-				crate::deprecate!(
-					lua,
-					"The `ya.md5()` function is deprecated, please use `ya.hash()` instead, in your {}"
-				);
-				Ok(format!("{:x}", Md5::new_with_prefix(s.as_bytes()).finalize()))
-			} else {
-				Ok(format!("{:x}", XxHash3_128::oneshot(s.as_bytes().as_ref())))
-			}
+	pub(super) fn hash(lua: &Lua) -> mlua::Result<Function> {
+		lua.create_async_function(move |_, s: mlua::String| async move {
+			Ok(format!("{:x}", XxHash3_128::oneshot(&s.as_bytes())))
 		})
 	}
 
@@ -36,32 +25,61 @@ impl Utils {
 	}
 
 	pub(super) fn truncate(lua: &Lua) -> mlua::Result<Function> {
-		fn truncate_impl(mut chars: impl Iterator<Item = char>, max: usize) -> Vec<char> {
-			let mut width = 0;
-			let flow = chars.try_fold(Vec::with_capacity(max), |mut v, c| {
-				width += c.width().unwrap_or(0);
-				if width < max {
-					v.push(c);
-					ControlFlow::Continue(v)
-				} else {
-					ControlFlow::Break(v)
-				}
-			});
-
-			match flow {
-				ControlFlow::Break(v) => v,
-				ControlFlow::Continue(v) => v,
-			}
+		fn traverse(
+			it: impl Iterator<Item = (usize, char)>,
+			max: usize,
+		) -> (Option<usize>, usize, bool) {
+			let (mut adv, mut last) = (0, 0);
+			let idx = it
+				.take_while(|&(_, c)| {
+					last = adv;
+					adv += c.width().unwrap_or(0);
+					adv <= max
+				})
+				.map(|(i, _)| i)
+				.last();
+			(idx, last, adv > max)
 		}
 
-		lua.create_function(|_, (text, t): (mlua::String, Table)| {
-			let (max, text) = (t.raw_get("max")?, text.to_string_lossy());
+		lua.create_function(|lua, (s, t): (mlua::String, Table)| {
+			let b = s.as_bytes();
+			if b.is_empty() {
+				return Ok(s);
+			}
 
-			Ok(if t.raw_get("rtl").unwrap_or(false) {
-				truncate_impl(text.chars().rev(), max).into_iter().rev().collect()
+			let max = t.raw_get("max")?;
+			if b.len() <= max {
+				return Ok(s);
+			} else if max < 1 {
+				return lua.create_string("");
+			}
+
+			let lossy = String::from_utf8_lossy(&b);
+			let rtl = t.raw_get("rtl").unwrap_or(false);
+			let (idx, width, remain) = if rtl {
+				traverse(lossy.char_indices().rev(), max)
 			} else {
-				truncate_impl(text.chars(), max).into_iter().collect::<String>()
-			})
+				traverse(lossy.char_indices(), max)
+			};
+
+			let Some(idx) = idx else { return lua.create_string("…") };
+			if !remain {
+				return Ok(s);
+			}
+
+			let result: Vec<_> = match (rtl, width == max) {
+				(false, false) => {
+					let len = lossy[idx..].chars().next().map_or(0, |c| c.len_utf8());
+					lossy[..idx + len].bytes().chain("…".bytes()).collect()
+				}
+				(false, true) => lossy[..idx].bytes().chain("…".bytes()).collect(),
+				(true, false) => "…".bytes().chain(lossy[idx..].bytes()).collect(),
+				(true, true) => {
+					let len = lossy[idx..].chars().next().map_or(0, |c| c.len_utf8());
+					"…".bytes().chain(lossy[idx + len..].bytes()).collect()
+				}
+			};
+			lua.create_string(result)
 		})
 	}
 
@@ -74,5 +92,78 @@ impl Utils {
 				Some(lua.create_string(CLIPBOARD.get().await.as_encoded_bytes())).transpose()
 			}
 		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use mlua::Value;
+
+	use super::*;
+
+	fn truncate(s: &str, max: usize, rtl: bool) -> String {
+		let lua = Lua::new();
+		let t = lua
+			.create_table_from([("max", Value::Integer(max as i64)), ("rtl", Value::Boolean(rtl))])
+			.unwrap();
+
+		Utils::truncate(&lua).unwrap().call((s, t)).unwrap()
+	}
+
+	#[test]
+	fn test_truncate() {
+		assert_eq!(truncate("你好，world", 0, false), "");
+		assert_eq!(truncate("你好，world", 1, false), "…");
+		assert_eq!(truncate("你好，world", 2, false), "…");
+
+		assert_eq!(truncate("你好，世界", 3, false), "你…");
+		assert_eq!(truncate("你好，世界", 4, false), "你…");
+		assert_eq!(truncate("你好，世界", 5, false), "你好…");
+
+		assert_eq!(truncate("Hello, world", 5, false), "Hell…");
+		assert_eq!(truncate("Ni好，世界", 3, false), "Ni…");
+	}
+
+	#[test]
+	fn test_truncate_rtl() {
+		assert_eq!(truncate("world，你好", 0, true), "");
+		assert_eq!(truncate("world，你好", 1, true), "…");
+		assert_eq!(truncate("world，你好", 2, true), "…");
+
+		assert_eq!(truncate("你好，世界", 3, true), "…界");
+		assert_eq!(truncate("你好，世界", 4, true), "…界");
+		assert_eq!(truncate("你好，世界", 5, true), "…世界");
+
+		assert_eq!(truncate("Hello, world", 5, true), "…orld");
+		assert_eq!(truncate("你好，Shi界", 3, true), "…界");
+	}
+
+	#[test]
+	fn test_truncate_oboe() {
+		assert_eq!(truncate("Hello, world", 11, false), "Hello, wor…");
+		assert_eq!(truncate("你好，世界", 9, false), "你好，世…");
+		assert_eq!(truncate("你好，世Jie", 9, false), "你好，世…");
+
+		assert_eq!(truncate("Hello, world", 11, true), "…llo, world");
+		assert_eq!(truncate("你好，世界", 9, true), "…好，世界");
+		assert_eq!(truncate("Ni好，世界", 9, true), "…好，世界");
+	}
+
+	#[test]
+	fn test_truncate_exact() {
+		assert_eq!(truncate("Hello, world", 12, false), "Hello, world");
+		assert_eq!(truncate("你好，世界", 10, false), "你好，世界");
+
+		assert_eq!(truncate("Hello, world", 12, true), "Hello, world");
+		assert_eq!(truncate("你好，世界", 10, true), "你好，世界");
+	}
+
+	#[test]
+	fn test_truncate_overflow() {
+		assert_eq!(truncate("Hello, world", 13, false), "Hello, world");
+		assert_eq!(truncate("你好，世界", 11, false), "你好，世界");
+
+		assert_eq!(truncate("Hello, world", 13, true), "Hello, world");
+		assert_eq!(truncate("你好，世界", 11, true), "你好，世界");
 	}
 }
