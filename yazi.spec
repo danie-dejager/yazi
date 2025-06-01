@@ -1,5 +1,5 @@
 %define name yazi
-%define version 25.5.28
+%define version 25.5.31
 %define release 1%{?dist}
 
 Summary:  Ping, but with a graph
