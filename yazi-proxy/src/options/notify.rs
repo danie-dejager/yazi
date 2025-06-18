@@ -2,8 +2,8 @@ use std::{str::FromStr, time::Duration};
 
 use mlua::{ExternalError, ExternalResult};
 use serde::Deserialize;
-use yazi_config::THEME;
-use yazi_shared::{event::CmdCow, theme::Style};
+use yazi_config::{Style, THEME};
+use yazi_shared::event::CmdCow;
 
 pub struct NotifyOpt {
 	pub title:   String,
@@ -52,7 +52,6 @@ pub enum NotifyLevel {
 }
 
 impl NotifyLevel {
-	#[inline]
 	pub fn icon(self) -> &'static str {
 		match self {
 			Self::Info => &THEME.notify.icon_info,
@@ -61,12 +60,11 @@ impl NotifyLevel {
 		}
 	}
 
-	#[inline]
-	pub fn style(self) -> &'static Style {
+	pub fn style(self) -> Style {
 		match self {
-			Self::Info => &THEME.notify.title_info,
-			Self::Warn => &THEME.notify.title_warn,
-			Self::Error => &THEME.notify.title_error,
+			Self::Info => THEME.notify.title_info,
+			Self::Warn => THEME.notify.title_warn,
+			Self::Error => THEME.notify.title_error,
 		}
 	}
 }

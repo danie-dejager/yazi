@@ -5,7 +5,7 @@ use super::Renderable;
 use crate::Composer;
 
 pub fn compose(lua: &Lua) -> mlua::Result<Value> {
-	Composer::make(lua, 20, |lua, key| {
+	Composer::make(lua, |lua, key| {
 		match key {
 			b"Align" => super::Align::compose(lua)?,
 			b"Bar" => super::Bar::compose(lua)?,
@@ -22,7 +22,7 @@ pub fn compose(lua: &Lua) -> mlua::Result<Value> {
 			b"Rect" => super::Rect::compose(lua)?,
 			b"Row" => super::Row::compose(lua)?,
 			b"Span" => super::Span::compose(lua)?,
-			b"Style" => super::Style::compose(lua)?,
+			b"Style" => yazi_binding::Style::compose(lua)?,
 			b"Table" => super::Table::compose(lua)?,
 			b"Text" => super::Text::compose(lua)?,
 			b"Wrap" => super::Wrap::compose(lua)?,

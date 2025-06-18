@@ -1,8 +1,9 @@
 use std::{any::Any, borrow::Cow, collections::HashMap};
 
+use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize, de};
 
-use crate::{Id, OrderedFloat, url::{Url, UrnBuf}};
+use crate::{Id, url::{Url, UrnBuf}};
 
 // --- Data
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,7 +57,7 @@ impl Data {
 	#[inline]
 	pub fn into_url(self) -> Option<Url> {
 		match self {
-			Data::String(s) => Some(Url::from(s.as_ref())),
+			Data::String(s) => Url::try_from(s.as_ref()).ok(),
 			Data::Url(u) => Some(u),
 			_ => None,
 		}
@@ -79,7 +80,7 @@ impl Data {
 	#[inline]
 	pub fn to_url(&self) -> Option<Url> {
 		match self {
-			Self::String(s) => Some(Url::from(s.as_ref())),
+			Self::String(s) => Url::try_from(s.as_ref()).ok(),
 			Self::Url(u) => Some(u.clone()),
 			_ => None,
 		}
@@ -88,6 +89,14 @@ impl Data {
 
 impl From<bool> for Data {
 	fn from(value: bool) -> Self { Self::Boolean(value) }
+}
+
+impl From<i32> for Data {
+	fn from(value: i32) -> Self { Self::Integer(value as i64) }
+}
+
+impl From<i64> for Data {
+	fn from(value: i64) -> Self { Self::Integer(value) }
 }
 
 impl From<f64> for Data {
@@ -126,13 +135,15 @@ pub enum DataKey {
 	Boolean(bool),
 	#[serde(deserialize_with = "Self::deserialize_integer")]
 	Integer(i64),
-	Number(OrderedFloat),
+	Number(OrderedFloat<f64>),
 	String(Cow<'static, str>),
 	Id(Id),
 	#[serde(skip_deserializing)]
 	Url(Url),
 	#[serde(skip_deserializing)]
 	Urn(UrnBuf),
+	#[serde(skip)]
+	Bytes(Vec<u8>),
 }
 
 impl DataKey {
@@ -187,7 +198,7 @@ impl From<String> for DataKey {
 }
 
 // --- Macros
-macro_rules! impl_integer_as {
+macro_rules! impl_as_integer {
 	($t:ty, $name:ident) => {
 		impl Data {
 			#[inline]
@@ -203,14 +214,16 @@ macro_rules! impl_integer_as {
 	};
 }
 
-macro_rules! impl_number_as {
+macro_rules! impl_as_number {
 	($t:ty, $name:ident) => {
 		impl Data {
 			#[inline]
 			pub fn $name(&self) -> Option<$t> {
 				match self {
+					Data::Integer(i) if *i == (*i as $t as _) => Some(*i as $t),
 					Data::Number(n) => <$t>::try_from(*n).ok(),
 					Data::String(s) => s.parse().ok(),
+					Data::Id(i) if i.0 == (i.0 as $t as _) => Some(i.0 as $t),
 					_ => None,
 				}
 			}
@@ -218,11 +231,10 @@ macro_rules! impl_number_as {
 	};
 }
 
-impl_integer_as!(usize, as_usize);
-impl_integer_as!(isize, as_isize);
-impl_integer_as!(i16, as_i16);
-impl_integer_as!(i32, as_i32);
+impl_as_integer!(usize, as_usize);
+impl_as_integer!(isize, as_isize);
+impl_as_integer!(i16, as_i16);
+impl_as_integer!(i32, as_i32);
+impl_as_integer!(crate::Id, as_id);
 
-impl_number_as!(f64, as_f64);
-
-impl_integer_as!(crate::Id, as_id);
+impl_as_number!(f64, as_f64);
