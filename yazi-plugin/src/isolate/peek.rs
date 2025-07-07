@@ -1,21 +1,20 @@
-use std::borrow::Cow;
-
 use mlua::{ExternalError, HookTriggers, IntoLua, ObjectLike, VmState};
 use tokio::{runtime::Handle, select};
 use tokio_util::sync::CancellationToken;
 use tracing::error;
+use yazi_binding::{File, elements::Rect};
 use yazi_config::LAYOUT;
 use yazi_dds::Sendable;
 use yazi_proxy::{AppProxy, options::{PluginCallback, PluginOpt}};
-use yazi_shared::event::Cmd;
+use yazi_shared::{SStr, event::Cmd};
 
 use super::slim_lua;
-use crate::{elements::Rect, file::File, loader::LOADER};
+use crate::loader::LOADER;
 
 pub fn peek(
 	cmd: &'static Cmd,
 	file: yazi_fs::File,
-	mime: Cow<'static, str>,
+	mime: SStr,
 	skip: usize,
 ) -> Option<CancellationToken> {
 	let ct = CancellationToken::new();
@@ -46,7 +45,7 @@ pub fn peek(
 	Some(ct)
 }
 
-fn peek_sync(cmd: &'static Cmd, file: yazi_fs::File, mime: Cow<'static, str>, skip: usize) {
+fn peek_sync(cmd: &'static Cmd, file: yazi_fs::File, mime: SStr, skip: usize) {
 	let cb: PluginCallback = Box::new(move |lua, plugin| {
 		let job = lua.create_table_from([
 			("area", Rect::from(LAYOUT.get().preview).into_lua(lua)?),
@@ -65,7 +64,7 @@ fn peek_sync(cmd: &'static Cmd, file: yazi_fs::File, mime: Cow<'static, str>, sk
 fn peek_async(
 	cmd: &'static Cmd,
 	file: yazi_fs::File,
-	mime: Cow<'static, str>,
+	mime: SStr,
 	skip: usize,
 	ct: CancellationToken,
 ) {
