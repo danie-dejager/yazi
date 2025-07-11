@@ -26,7 +26,7 @@ impl Default for Folder {
 		Self {
 			url:    Default::default(),
 			cha:    Default::default(),
-			files:  Files::new(YAZI.mgr.show_hidden),
+			files:  Files::new(YAZI.mgr.show_hidden.get()),
 			stage:  Default::default(),
 			offset: Default::default(),
 			cursor: Default::default(),
@@ -90,7 +90,7 @@ impl Folder {
 		if !self.update(op) {
 			return false;
 		} else if self.stage != old {
-			err!(Pubsub::pub_from_load(tab, &self.url, self.stage));
+			err!(Pubsub::pub_after_load(tab, &self.url, self.stage));
 		}
 		true
 	}
@@ -140,7 +140,7 @@ impl Folder {
 		let len = self.files.len();
 
 		let limit = LAYOUT.get().limit();
-		let scrolloff = (limit / 2).min(YAZI.mgr.scrolloff as usize);
+		let scrolloff = (limit / 2).min(YAZI.mgr.scrolloff.get() as usize);
 
 		self.offset = if self.cursor < (self.offset + limit).min(len).saturating_sub(scrolloff) {
 			len.saturating_sub(limit).min(self.offset)
@@ -174,7 +174,7 @@ impl Scrollable for Folder {
 	fn limit(&self) -> usize { LAYOUT.get().limit() }
 
 	#[inline]
-	fn scrolloff(&self) -> usize { (self.limit() / 2).min(YAZI.mgr.scrolloff as usize) }
+	fn scrolloff(&self) -> usize { (self.limit() / 2).min(YAZI.mgr.scrolloff.get() as usize) }
 
 	#[inline]
 	fn cursor_mut(&mut self) -> &mut usize { &mut self.cursor }
