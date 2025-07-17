@@ -1,1 +1,26 @@
-yazi_macro::mod_flat!(close create hardlink link open paste peek quit remove rename seek spot tab_close tab_create tab_swap tab_switch unyank update_files update_mimes update_paged update_tasks update_yanked watch yank);
+yazi_macro::mod_flat!(
+	close
+	create
+	hardlink
+	hidden
+	linemode
+	link
+	open
+	paste
+	peek
+	quit
+	remove
+	rename
+	search
+	seek
+	spot
+	tab_close
+	tab_create
+	tab_switch
+	update_files
+	update_mimes
+	update_paged
+	update_tasks
+	update_yanked
+	yank
+);

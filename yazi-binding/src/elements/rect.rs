@@ -6,7 +6,7 @@ use super::Pad;
 use crate::deprecate;
 
 #[derive(Clone, Copy, Debug, Default, FromLua)]
-pub struct Rect(pub(super) ratatui::layout::Rect);
+pub struct Rect(pub ratatui::layout::Rect);
 
 impl Deref for Rect {
 	type Target = ratatui::layout::Rect;
@@ -48,7 +48,7 @@ impl Rect {
 		let rect = lua.create_table()?;
 		rect.set_metatable(Some(
 			lua.create_table_from([(MetaMethod::Call.name(), new), (MetaMethod::Index.name(), index)])?,
-		));
+		))?;
 		rect.into_lua(lua)
 	}
 

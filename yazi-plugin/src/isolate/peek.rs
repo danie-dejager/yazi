@@ -5,7 +5,8 @@ use tracing::error;
 use yazi_binding::{File, elements::Rect};
 use yazi_config::LAYOUT;
 use yazi_dds::Sendable;
-use yazi_proxy::{AppProxy, options::{PluginCallback, PluginOpt}};
+use yazi_parser::app::{PluginCallback, PluginOpt};
+use yazi_proxy::AppProxy;
 use yazi_shared::{SStr, event::Cmd};
 
 use super::slim_lua;
@@ -81,7 +82,7 @@ fn peek_async(
 						Ok(VmState::Continue)
 					}
 				},
-			);
+			)?;
 
 			let plugin = LOADER.load_once(&lua, &cmd.name)?;
 			let job = lua.create_table_from([
@@ -102,10 +103,10 @@ fn peek_async(
 			}
 		});
 
-		if let Err(e) = result {
-			if !e.to_string().contains("Peek task cancelled") {
-				error!("{e}");
-			}
+		if let Err(e) = result
+			&& !e.to_string().contains("Peek task cancelled")
+		{
+			error!("{e}");
 		}
 	});
 }
