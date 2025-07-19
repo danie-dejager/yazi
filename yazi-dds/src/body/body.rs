@@ -3,7 +3,7 @@ use mlua::{ExternalResult, IntoLua, Lua, Value};
 use serde::Serialize;
 use yazi_shared::Id;
 
-use super::{BodyBulk, BodyBye, BodyCd, BodyCustom, BodyDelete, BodyHey, BodyHi, BodyHover, BodyLoad, BodyMount, BodyMove, BodyRename, BodyTab, BodyTrash, BodyYank};
+use super::{BeforeQuitBody, BodyBulk, BodyBye, BodyCd, BodyCustom, BodyDelete, BodyHey, BodyHi, BodyHover, BodyLoad, BodyMount, BodyMove, BodyRename, BodyTab, BodyTrash, BodyYank};
 use crate::Payload;
 
 #[derive(Debug, Serialize)]
@@ -23,6 +23,7 @@ pub enum Body<'a> {
 	Trash(BodyTrash<'a>),
 	Delete(BodyDelete<'a>),
 	Mount(BodyMount),
+	BeforeQuit(BeforeQuitBody),
 	Custom(BodyCustom),
 }
 
@@ -43,13 +44,14 @@ impl Body<'static> {
 			"trash" => Self::Trash(serde_json::from_str(body)?),
 			"delete" => Self::Delete(serde_json::from_str(body)?),
 			"mount" => Self::Mount(serde_json::from_str(body)?),
+			"before-quit" => Self::BeforeQuit(serde_json::from_str(body)?),
 			_ => BodyCustom::from_str(kind, body)?,
 		})
 	}
 
-	pub fn from_lua(kind: &str, value: Value) -> mlua::Result<Self> {
+	pub fn from_lua(lua: &Lua, kind: &str, value: Value) -> mlua::Result<Self> {
 		Self::validate(kind).into_lua_err()?;
-		BodyCustom::from_lua(kind, value)
+		BodyCustom::from_lua(lua, kind, value)
 	}
 
 	pub fn validate(kind: &str) -> Result<()> {
@@ -69,6 +71,7 @@ impl Body<'static> {
 				| "trash"
 				| "delete"
 				| "mount"
+				| "before-quit"
 		) {
 			bail!("Cannot construct system event");
 		}
@@ -103,6 +106,7 @@ impl<'a> Body<'a> {
 			Self::Trash(_) => "trash",
 			Self::Delete(_) => "delete",
 			Self::Mount(_) => "mount",
+			Self::BeforeQuit(_) => "before-quit",
 			Self::Custom(b) => b.kind.as_str(),
 		}
 	}
@@ -133,6 +137,7 @@ impl IntoLua for Body<'static> {
 			Self::Trash(b) => b.into_lua(lua),
 			Self::Delete(b) => b.into_lua(lua),
 			Self::Mount(b) => b.into_lua(lua),
+			Self::BeforeQuit(b) => b.into_lua(lua),
 			Self::Custom(b) => b.into_lua(lua),
 		}
 	}

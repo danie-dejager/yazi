@@ -4,11 +4,10 @@ use anyhow::Result;
 use tokio::pin;
 use tokio_stream::{StreamExt, wrappers::UnboundedReceiverStream};
 use yazi_config::popup::InputCfg;
-use yazi_fs::FilterCase;
-use yazi_macro::{emit, succ};
-use yazi_parser::tab::FilterOpt;
-use yazi_proxy::InputProxy;
-use yazi_shared::{Debounce, errors::InputError, event::{Cmd, Data}};
+use yazi_macro::succ;
+use yazi_parser::mgr::FilterOpt;
+use yazi_proxy::{InputProxy, MgrProxy};
+use yazi_shared::{Debounce, errors::InputError, event::Data};
 
 use crate::{Actor, Ctx};
 
@@ -17,7 +16,7 @@ pub struct Filter;
 impl Actor for Filter {
 	type Options = FilterOpt;
 
-	const NAME: &'static str = "filter";
+	const NAME: &str = "filter";
 
 	fn act(_: &mut Ctx, opt: Self::Options) -> Result<Data> {
 		let input = InputProxy::show(InputCfg::filter());
@@ -30,12 +29,7 @@ impl Actor for Filter {
 				let done = result.is_ok();
 				let (Ok(s) | Err(InputError::Typed(s))) = result else { continue };
 
-				emit!(Call(
-					Cmd::args("mgr:filter_do", [s])
-						.with("smart", opt.case == FilterCase::Smart)
-						.with("insensitive", opt.case == FilterCase::Insensitive)
-						.with("done", done)
-				));
+				MgrProxy::filter_do(FilterOpt { query: s.into(), case: opt.case, done });
 			}
 		});
 		succ!();
