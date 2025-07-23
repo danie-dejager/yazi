@@ -1,8 +1,7 @@
 use anyhow::Result;
-use tokio::fs;
 use yazi_config::popup::{ConfirmCfg, InputCfg};
 use yazi_dds::Pubsub;
-use yazi_fs::{File, FilesOp, maybe_exists, ok_or_not_found, paths_to_same_file, realname};
+use yazi_fs::{File, FilesOp, maybe_exists, ok_or_not_found, paths_to_same_file, realname, services};
 use yazi_macro::{act, err, succ};
 use yazi_parser::mgr::RenameOpt;
 use yazi_proxy::{ConfirmProxy, InputProxy, MgrProxy, WATCHER};
@@ -20,7 +19,7 @@ impl Actor for Rename {
 	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
 		act!(mgr:escape_visual, cx)?;
 
-		if !opt.hovered && !cx.tab_mut().selected.is_empty() {
+		if !opt.hovered && !cx.tab().selected.is_empty() {
 			return act!(mgr:bulk_rename, cx);
 		}
 
@@ -66,10 +65,10 @@ impl Rename {
 		let _permit = WATCHER.acquire().await.unwrap();
 
 		let overwritten = realname(&new).await;
-		fs::rename(&old, &new).await?;
+		services::rename(&old, &new).await?;
 
 		if let Some(o) = overwritten {
-			ok_or_not_found(fs::rename(p_new.join(&o), &new).await)?;
+			ok_or_not_found(services::rename(p_new.join(&o), &new).await)?;
 			FilesOp::Deleting(p_new.clone(), [UrnBuf::from(o)].into()).emit();
 		}
 
