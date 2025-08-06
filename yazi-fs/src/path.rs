@@ -3,16 +3,20 @@ use std::{borrow::Cow, env, ffi::{OsStr, OsString}, future::Future, io, path::{P
 use anyhow::{Result, bail};
 use yazi_shared::url::{Loc, Url};
 
-use crate::{CWD, services};
+use crate::{CWD, provider};
 
-#[inline]
-pub fn clean_url(url: &Url) -> Url { Url::from(clean_path(url)) }
+pub fn clean_url<'a>(url: impl Into<Cow<'a, Url>>) -> Cow<'a, Url> {
+	let url = url.into();
+	let path = clean_path(&url.loc);
 
-// FIXME: VFS
-#[inline]
-pub fn clean_path(path: impl AsRef<Path>) -> PathBuf { _clean_path(path.as_ref()) }
+	if path.as_os_str() == url.loc.as_os_str() {
+		url
+	} else {
+		url.with(Loc::with_lossy(&clean_path(url.loc.base()), path)).into()
+	}
+}
 
-fn _clean_path(path: &Path) -> PathBuf {
+fn clean_path(path: &Path) -> PathBuf {
 	use std::path::Component::*;
 
 	let mut out = vec![];
@@ -33,17 +37,20 @@ fn _clean_path(path: &Path) -> PathBuf {
 
 // FIXME: VFS
 #[inline]
-pub fn expand_path(p: impl AsRef<Path>) -> PathBuf { _expand_path(p.as_ref()) }
+pub fn expand_path(p: impl AsRef<Path>) -> PathBuf {
+	expand_url(Url::from(p.as_ref())).into_owned().loc.into_path()
+}
 
 #[inline]
 pub fn expand_url<'a>(url: impl Into<Cow<'a, Url>>) -> Cow<'a, Url> {
-	let u: Cow<'a, Url> = url.into();
-	let Some(p) = u.as_path() else { return u };
-
-	Url { loc: Loc::with(u.loc.base(), _expand_path(p)), scheme: u.scheme.clone() }.into()
+	let cow: Cow<'a, Url> = url.into();
+	match _expand_url(&cow) {
+		Cow::Borrowed(_) => cow,
+		Cow::Owned(url) => url.into(),
+	}
 }
 
-fn _expand_path(p: &Path) -> PathBuf {
+fn _expand_url(url: &Url) -> Cow<'_, Url> {
 	// ${HOME} or $HOME
 	#[cfg(unix)]
 	let re = regex::bytes::Regex::new(r"\$(?:\{([^}]+)\}|([a-zA-Z\d_]+))").unwrap();
@@ -52,7 +59,16 @@ fn _expand_path(p: &Path) -> PathBuf {
 	#[cfg(windows)]
 	let re = regex::bytes::Regex::new(r"%([^%]+)%").unwrap();
 
-	let b = re.replace_all(p.as_os_str().as_encoded_bytes(), |caps: &regex::bytes::Captures| {
+	let b = url.loc.as_os_str().as_encoded_bytes();
+	let local = !url.scheme.is_virtual();
+
+	// Windows paths that only have a drive letter but no root, e.g. "D:"
+	#[cfg(windows)]
+	if local && b.len() == 2 && b[1] == b':' && b[0].is_ascii_alphabetic() {
+		return url.with(format!(r"{}:\", b[0].to_ascii_uppercase() as char)).into();
+	}
+
+	let b = re.replace_all(b, |caps: &regex::bytes::Captures| {
 		let name = caps.get(2).or_else(|| caps.get(1)).unwrap();
 		str::from_utf8(name.as_bytes())
 			.ok()
@@ -60,21 +76,19 @@ fn _expand_path(p: &Path) -> PathBuf {
 			.map_or_else(|| caps.get(0).unwrap().as_bytes().to_owned(), |s| s.into_encoded_bytes())
 	});
 
-	// Windows paths that only have a drive letter but no root, e.g. "D:"
-	#[cfg(windows)]
-	if b.len() == 2 {
-		if b[1] == b':' && b[0].is_ascii_alphabetic() {
-			return PathBuf::from(format!("{}:\\", b[0].to_ascii_uppercase() as char));
+	let path: Cow<_> = unsafe {
+		match b {
+			Cow::Borrowed(b) => Path::new(OsStr::from_encoded_bytes_unchecked(b)).into(),
+			Cow::Owned(b) => PathBuf::from(OsString::from_encoded_bytes_unchecked(b)).into(),
 		}
-	}
+	};
 
-	let p = unsafe { Path::new(OsStr::from_encoded_bytes_unchecked(b.as_ref())) };
-	if let Ok(rest) = p.strip_prefix("~") {
-		clean_path(dirs::home_dir().unwrap_or_default().join(rest))
-	} else if p.is_absolute() {
-		clean_path(p)
+	if let Some(rest) = path.strip_prefix("~").ok().filter(|_| local) {
+		url.with(clean_path(&dirs::home_dir().unwrap_or_default().join(rest))).into()
+	} else if path.is_absolute() {
+		url.with(clean_path(&path)).into()
 	} else {
-		clean_path(CWD.load().join(p))
+		clean_url(CWD.load().join(path))
 	}
 }
 
@@ -92,7 +106,7 @@ pub async fn unique_name<F>(u: Url, append: F) -> io::Result<Url>
 where
 	F: Future<Output = bool>,
 {
-	match services::symlink_metadata(&u).await {
+	match provider::symlink_metadata(&u).await {
 		Ok(_) => _unique_name(u, append.await).await,
 		Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(u),
 		Err(e) => Err(e),
@@ -128,7 +142,7 @@ async fn _unique_name(mut url: Url, append: bool) -> io::Result<Url> {
 		}
 
 		url.set_name(&name);
-		match services::symlink_metadata(&url).await {
+		match provider::symlink_metadata(&url).await {
 			Ok(_) => i += 1,
 			Err(e) if e.kind() == io::ErrorKind::NotFound => break,
 			Err(e) => return Err(e),
@@ -150,7 +164,7 @@ pub fn url_relative_to<'a>(from: &Url, to: &'a Url) -> Result<Cow<'a, Url>> {
 	}
 
 	if from.covariant(to) {
-		return Ok(Url { loc: Path::new(".").into(), scheme: to.scheme.clone() }.into());
+		return Ok(to.with(Path::new(".")).into());
 	}
 
 	let (mut f_it, mut t_it) = (from.components(), to.components());
@@ -172,7 +186,7 @@ pub fn url_relative_to<'a>(from: &Url, to: &'a Url) -> Result<Cow<'a, Url>> {
 	let rest = t_head.into_iter().chain(t_it);
 
 	let buf: PathBuf = dots.chain(rest).collect();
-	Ok(Url { loc: buf.into(), scheme: to.scheme.clone() }.into())
+	Ok(to.with(buf).into())
 }
 
 #[cfg(windows)]
@@ -200,16 +214,14 @@ pub fn backslash_to_slash(p: &Path) -> Cow<'_, Path> {
 mod tests {
 	use std::borrow::Cow;
 
-	use yazi_shared::url::Url;
-
 	use super::url_relative_to;
 
 	#[test]
 	fn test_path_relative_to() {
 		fn assert(from: &str, to: &str, ret: &str) {
 			assert_eq!(
-				url_relative_to(&Url::try_from(from).unwrap(), &Url::try_from(to).unwrap()).unwrap(),
-				Cow::Owned(Url::try_from(ret).unwrap())
+				url_relative_to(&from.parse().unwrap(), &to.parse().unwrap()).unwrap(),
+				Cow::Owned(ret.parse().unwrap())
 			);
 		}
 
