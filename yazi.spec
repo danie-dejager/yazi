@@ -1,6 +1,6 @@
 %define name yazi
 %define version 25.5.31
-%define release 1%{?dist}
+%define release 2%{?dist}
 
 Summary:  Ping, but with a graph
 Name:     %{name}
