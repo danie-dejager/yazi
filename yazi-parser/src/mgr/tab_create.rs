@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use mlua::{ExternalError, IntoLua, Lua, Value};
+use mlua::{ExternalError, FromLua, IntoLua, Lua, Value};
 use yazi_boot::BOOT;
-use yazi_fs::expand_url;
+use yazi_fs::path::expand_url;
 use yazi_shared::{event::CmdCow, url::Url};
 
 #[derive(Debug)]
@@ -27,6 +27,10 @@ impl From<CmdCow> for TabCreateOpt {
 	}
 }
 
-impl IntoLua for &TabCreateOpt {
+impl FromLua for TabCreateOpt {
+	fn from_lua(_: Value, _: &Lua) -> mlua::Result<Self> { Err("unsupported".into_lua_err()) }
+}
+
+impl IntoLua for TabCreateOpt {
 	fn into_lua(self, _: &Lua) -> mlua::Result<Value> { Err("unsupported".into_lua_err()) }
 }

@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
-use mlua::{ExternalError, IntoLua, Lua, Value};
+use mlua::{ExternalError, FromLua, IntoLua, Lua, Value};
 use yazi_fs::SortBy;
 use yazi_shared::event::CmdCow;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SortOpt {
 	pub by:        Option<SortBy>,
 	pub reverse:   Option<bool>,
@@ -27,6 +27,10 @@ impl TryFrom<CmdCow> for SortOpt {
 	}
 }
 
-impl IntoLua for &SortOpt {
+impl FromLua for SortOpt {
+	fn from_lua(_: Value, _: &Lua) -> mlua::Result<Self> { Err("unsupported".into_lua_err()) }
+}
+
+impl IntoLua for SortOpt {
 	fn into_lua(self, _: &Lua) -> mlua::Result<Value> { Err("unsupported".into_lua_err()) }
 }
