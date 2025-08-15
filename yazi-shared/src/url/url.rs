@@ -198,7 +198,17 @@ impl Url {
 	}
 
 	#[inline]
+	pub fn into_path(self) -> Option<PathBuf> {
+		Some(self.loc.into_path()).filter(|_| !self.scheme.is_virtual())
+	}
+
+	#[inline]
 	pub fn set_name(&mut self, name: impl AsRef<OsStr>) { self.loc.set_name(name); }
+
+	#[inline]
+	pub fn rebase(&self, base: &Path) -> Self {
+		Self { loc: self.loc.rebase(base), scheme: self.scheme.clone() }
+	}
 
 	#[inline]
 	pub fn pair(&self) -> Option<(Self, UrnBuf)> { Some((self.parent_url()?, self.loc.urn_owned())) }
@@ -206,15 +216,9 @@ impl Url {
 	#[inline]
 	pub fn hash_u64(&self) -> u64 { foldhash::fast::FixedState::default().hash_one(self) }
 
-	#[inline]
-	pub fn rebase(&self, parent: &Path) -> Self {
-		debug_assert!(self.is_regular());
-		self.loc.rebase(parent).into()
-	}
-
 	pub fn parse(bytes: &[u8]) -> Result<(Scheme, PathBuf, Option<(usize, usize)>)> {
 		let mut skip = 0;
-		let (scheme, tilde, port) = Scheme::parse(bytes, &mut skip)?;
+		let (scheme, tilde, uri, urn) = Scheme::parse(bytes, &mut skip)?;
 
 		let rest = if tilde {
 			Cow::from(percent_decode(&bytes[skip..])).into_os_str()?
@@ -227,7 +231,9 @@ impl Url {
 			Cow::Owned(s) => PathBuf::from(s),
 		};
 
-		Ok((scheme, path, port))
+		let ports = scheme.normalize_ports(uri, urn, &path)?;
+
+		Ok((scheme, path, ports))
 	}
 }
 
@@ -271,9 +277,19 @@ impl Url {
 	#[inline]
 	pub fn is_archive(&self) -> bool { matches!(self.scheme, Scheme::Archive(_)) }
 
+	// --- Internal
+	#[inline]
+	pub fn is_internal(&self) -> bool {
+		match self.scheme {
+			Scheme::Regular | Scheme::Sftp(_) => true,
+			Scheme::Search(_) => !self.loc.uri().is_empty(),
+			Scheme::Archive(_) => false,
+		}
+	}
+
 	// FIXME: remove
 	#[inline]
-	pub fn into_path(self) -> PathBuf { self.loc.into_path() }
+	pub fn into_path2(self) -> PathBuf { self.loc.into_path() }
 }
 
 impl Debug for Url {
@@ -323,8 +339,8 @@ mod tests {
 			("archive://:2:1//a/b.zip/c/d", "e/f", "archive://:4:1//a/b.zip/c/d/e/f"),
 			("archive://:2:2//a/b.zip/c/d", "e/f", "archive://:4:1//a/b.zip/c/d/e/f"),
 			// SFTP
-			("sftp://remote//a", "b/c", "sftp://remote:1:1//a/b/c"),
-			("sftp://remote:1:1//a/b/c", "d/e", "sftp://remote:1:1//a/b/c/d/e"),
+			("sftp://remote//a", "b/c", "sftp://remote//a/b/c"),
+			("sftp://remote:1:1//a/b/c", "d/e", "sftp://remote//a/b/c/d/e"),
 			// Relative
 			("search://kw", "b/c", "search://kw:2:2/b/c"),
 			("search://kw/", "b/c", "search://kw:2:2/b/c"),
@@ -356,8 +372,8 @@ mod tests {
 			("archive://:1:1//a/b.zip/c", Some("archive:////a/b.zip")),
 			("archive:////a/b.zip", Some("regular:///a")),
 			// SFTP
-			("sftp://remote:1:1//a/b", Some("sftp://remote:1:1//a")),
-			("sftp://remote:1:1//a", Some("sftp://remote:1//")),
+			("sftp://remote:1:1//a/b", Some("sftp://remote//a")),
+			("sftp://remote:1:1//a", Some("sftp://remote//")),
 			("sftp://remote:1//", None),
 			("sftp://remote//", None),
 			// Relative

@@ -1,7 +1,7 @@
 use std::{ffi::OsStr, fs::{FileType, Metadata}, hash::{BuildHasher, Hash, Hasher}, ops::Deref};
 
 use anyhow::Result;
-use yazi_shared::url::{Url, Urn, UrnBuf};
+use yazi_shared::url::{Uri, Url, Urn, UrnBuf};
 
 use crate::{cha::Cha, provider};
 
@@ -45,8 +45,8 @@ impl File {
 	pub fn hash_u64(&self) -> u64 { foldhash::fast::FixedState::default().hash_one(self) }
 
 	#[inline]
-	pub fn rebase(&self, parent: &Url) -> Self {
-		Self { url: self.url.rebase(parent), cha: self.cha, link_to: self.link_to.clone() }
+	pub fn chdir(&self, wd: &Url) -> Self {
+		Self { url: self.url.rebase(wd), cha: self.cha, link_to: self.link_to.clone() }
 	}
 }
 
@@ -56,7 +56,7 @@ impl File {
 	pub fn url_owned(&self) -> Url { self.url.to_owned() }
 
 	#[inline]
-	pub fn uri(&self) -> &Urn { self.url.uri() }
+	pub fn uri(&self) -> &Uri { self.url.uri() }
 
 	#[inline]
 	pub fn urn(&self) -> &Urn { self.url.urn() }

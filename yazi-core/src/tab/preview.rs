@@ -38,10 +38,10 @@ impl Preview {
 
 	pub fn go_folder(&mut self, file: File, dir: Option<Cha>, force: bool) {
 		let same = self.same_file(&file, MIME_DIR);
-		let (wd, cha) = (file.url_owned(), file.cha);
+		let (wd, cha, internal) = (file.url_owned(), file.cha, file.url.is_internal());
 
 		self.go(file, Cow::Borrowed(MIME_DIR), force);
-		if same {
+		if same || !internal {
 			return;
 		}
 
