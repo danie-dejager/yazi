@@ -1,6 +1,6 @@
 use std::{borrow::Cow, ffi::{OsStr, OsString}, iter::FusedIterator, ops::Not, path::{self, PathBuf, PrefixComponent}};
 
-use crate::{loc::LocBuf, url::{Encode, Scheme, UrlBuf}};
+use crate::{loc::Loc, url::{Encode, Scheme, Url, UrlBuf, UrlCow}};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Component<'a> {
@@ -60,21 +60,43 @@ impl<'a> FromIterator<Component<'a>> for PathBuf {
 #[derive(Clone)]
 pub struct Components<'a> {
 	inner:          path::Components<'a>,
-	loc:            &'a LocBuf,
+	loc:            Loc<'a>,
 	scheme:         &'a Scheme,
 	scheme_yielded: bool,
 }
 
-impl<'a> Components<'a> {
-	pub fn new(url: &'a UrlBuf) -> Self {
+impl<'a> From<&'a Url<'a>> for Components<'a> {
+	fn from(value: &'a Url<'a>) -> Self {
 		Self {
-			inner:          url.loc.components(),
-			loc:            &url.loc,
-			scheme:         &url.scheme,
+			inner:          value.loc.components(),
+			loc:            value.loc,
+			scheme:         &value.scheme,
 			scheme_yielded: false,
 		}
 	}
+}
 
+impl<'a> From<&'a UrlBuf> for Components<'a> {
+	fn from(value: &'a UrlBuf) -> Self {
+		Self {
+			inner:          value.loc.components(),
+			loc:            value.loc.as_loc(),
+			scheme:         &value.scheme,
+			scheme_yielded: false,
+		}
+	}
+}
+
+impl<'a> From<&'a UrlCow<'a>> for Components<'a> {
+	fn from(value: &'a UrlCow<'a>) -> Self {
+		match value {
+			UrlCow::Borrowed(url) => Self::from(url),
+			UrlCow::Owned(url) => Self::from(url),
+		}
+	}
+}
+
+impl<'a> Components<'a> {
 	pub fn os_str(&self) -> Cow<'a, OsStr> {
 		let path = self.inner.as_path();
 		if !self.scheme.is_virtual() || self.scheme_yielded {
@@ -146,19 +168,22 @@ mod tests {
 	use std::path::Path;
 
 	use super::*;
+	use crate::pool::InternStr;
 
 	#[test]
 	fn test_collect() {
+		crate::init_tests();
+
 		let search: UrlBuf = "search://keyword//root/projects/yazi".parse().unwrap();
 		assert_eq!(search.loc.uri().as_os_str(), OsStr::new(""));
-		assert_eq!(search.scheme, Scheme::Search("keyword".to_owned()));
+		assert_eq!(search.scheme, Scheme::Search("keyword".intern()));
 
 		let item = search.join("main.rs");
 		assert_eq!(item.loc.uri().as_os_str(), OsStr::new("main.rs"));
-		assert_eq!(item.scheme, Scheme::Search("keyword".to_owned()));
+		assert_eq!(item.scheme, Scheme::Search("keyword".intern()));
 
 		let u: UrlBuf = item.components().take(4).collect();
-		assert_eq!(u.scheme, Scheme::Search("keyword".to_owned()));
+		assert_eq!(u.scheme, Scheme::Search("keyword".intern()));
 		assert_eq!(u.loc.as_path(), Path::new("/root/projects"));
 
 		let u: UrlBuf = item
@@ -166,7 +191,7 @@ mod tests {
 			.take(5)
 			.chain([Component::Normal(OsStr::new("target/release/yazi"))])
 			.collect();
-		assert_eq!(u.scheme, Scheme::Search("keyword".to_owned()));
+		assert_eq!(u.scheme, Scheme::Search("keyword".intern()));
 		assert_eq!(u.loc.as_path(), Path::new("/root/projects/yazi/target/release/yazi"));
 	}
 }

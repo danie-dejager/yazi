@@ -1,20 +1,19 @@
-use std::{borrow::Cow, collections::HashMap};
-
+use hashbrown::HashMap;
 use yazi_fs::File;
-use yazi_shared::{MIME_DIR, SStr, url::{UrlBuf, UrlCov}};
+use yazi_shared::{MIME_DIR, pool::{InternStr, Symbol}, url::{Url, UrlBufCov, UrlCov}};
 
 #[derive(Default)]
-pub struct Mimetype(HashMap<UrlCov, String>);
+pub struct Mimetype(HashMap<UrlBufCov, Symbol<str>>);
 
 impl Mimetype {
 	#[inline]
-	pub fn by_url(&self, url: &UrlBuf) -> Option<&str> {
-		self.0.get(UrlCov::new(url)).map(|s| s.as_str())
+	pub fn by_url<'a>(&self, url: impl Into<Url<'a>>) -> Option<&str> {
+		self.0.get(&UrlCov::new(url)).map(|s| s.as_ref())
 	}
 
 	#[inline]
-	pub fn by_url_owned(&self, url: &UrlBuf) -> Option<SStr> {
-		self.by_url(url).map(|s| Cow::Owned(s.to_owned()))
+	pub fn by_url_owned<'a>(&self, url: impl Into<Url<'a>>) -> Option<Symbol<str>> {
+		self.0.get(&UrlCov::new(url)).cloned()
 	}
 
 	#[inline]
@@ -23,15 +22,17 @@ impl Mimetype {
 	}
 
 	#[inline]
-	pub fn by_file_owned(&self, file: &File) -> Option<SStr> {
-		if file.is_dir() { Some(Cow::Borrowed(MIME_DIR)) } else { self.by_url_owned(&file.url) }
+	pub fn by_file_owned(&self, file: &File) -> Option<Symbol<str>> {
+		if file.is_dir() { Some(MIME_DIR.intern()) } else { self.by_url_owned(&file.url) }
 	}
 
 	#[inline]
-	pub fn contains(&self, url: &UrlBuf) -> bool { self.0.contains_key(UrlCov::new(url)) }
+	pub fn contains<'a>(&self, url: impl Into<Url<'a>>) -> bool {
+		self.0.contains_key(&UrlCov::new(url))
+	}
 
 	#[inline]
-	pub fn extend(&mut self, iter: impl IntoIterator<Item = (UrlBuf, String)>) {
-		self.0.extend(iter.into_iter().map(|(u, m)| (UrlCov(u), m)));
+	pub fn extend(&mut self, iter: impl IntoIterator<Item = (UrlBufCov, Symbol<str>)>) {
+		self.0.extend(iter);
 	}
 }

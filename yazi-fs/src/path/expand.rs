@@ -1,15 +1,15 @@
 use std::{borrow::Cow, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 
-use yazi_shared::{loc::LocBuf, url::UrlBuf};
+use yazi_shared::{loc::LocBuf, url::{Url, UrlBuf, UrlCow}};
 
 use crate::{CWD, path::clean_url};
 
 #[inline]
-pub fn expand_url<'a>(url: impl AsRef<UrlBuf>) -> UrlBuf {
-	clean_url(expand_url_impl(url.as_ref()))
+pub fn expand_url<'a>(url: impl Into<UrlCow<'a>>) -> UrlBuf {
+	clean_url(expand_url_impl(url.into().as_url()))
 }
 
-fn expand_url_impl(url: &UrlBuf) -> Cow<'_, UrlBuf> {
+fn expand_url_impl<'a>(url: Url<'a>) -> UrlCow<'a> {
 	let (o_base, o_rest, o_urn) = url.loc.triple();
 
 	let n_base = expand_variables(o_base);
@@ -106,6 +106,7 @@ mod tests {
 	#[cfg(unix)]
 	#[test]
 	fn test_expand_url() -> Result<()> {
+		yazi_shared::init_tests();
 		unsafe {
 			std::env::set_var("FOO", "foo");
 			std::env::set_var("BAR_BAZ", "bar/baz");

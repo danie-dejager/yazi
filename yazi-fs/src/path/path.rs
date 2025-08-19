@@ -1,7 +1,7 @@
 use std::{borrow::Cow, ffi::{OsStr, OsString}, future::Future, io, path::PathBuf};
 
 use anyhow::{Result, bail};
-use yazi_shared::{loc::LocBuf, url::UrlBuf};
+use yazi_shared::{loc::LocBuf, url::{UrlBuf, UrlCow}};
 
 use crate::provider;
 
@@ -63,19 +63,26 @@ async fn _unique_name(mut url: UrlBuf, append: bool) -> io::Result<UrlBuf> {
 	Ok(url)
 }
 
-pub fn url_relative_to<'a>(from: &UrlBuf, to: &'a UrlBuf) -> Result<Cow<'a, UrlBuf>> {
+pub fn url_relative_to<'a>(
+	from: impl Into<UrlCow<'a>>,
+	to: impl Into<UrlCow<'a>>,
+) -> Result<UrlCow<'a>> {
+	url_relative_to_impl(from.into(), to.into())
+}
+
+pub fn url_relative_to_impl<'a>(from: UrlCow<'a>, to: UrlCow<'a>) -> Result<UrlCow<'a>> {
 	use yazi_shared::url::Component::*;
 
 	if from.is_absolute() != to.is_absolute() {
 		return if to.is_absolute() {
-			Ok(to.into())
+			Ok(to)
 		} else {
 			bail!("Urls must be both absolute or both relative: {from:?} and {to:?}");
 		};
 	}
 
-	if from.covariant(to) {
-		return Ok(UrlBuf { loc: LocBuf::zeroed("."), scheme: to.scheme.clone() }.into());
+	if from.covariant(&to) {
+		return Ok(UrlBuf { loc: LocBuf::zeroed("."), scheme: to.scheme().clone() }.into());
 	}
 
 	let (mut f_it, mut t_it) = (from.components(), to.components());
@@ -85,7 +92,7 @@ pub fn url_relative_to<'a>(from: &UrlBuf, to: &'a UrlBuf) -> Result<Cow<'a, UrlB
 			(Some(RootDir), Some(RootDir)) => {}
 			(Some(Prefix(a)), Some(Prefix(b))) if a == b => {}
 			(Some(Scheme(_) | Prefix(_) | RootDir), _) | (_, Some(Scheme(_) | Prefix(_) | RootDir)) => {
-				return Ok(to.into());
+				return Ok(to);
 			}
 			(None, None) => break (None, None),
 			(a, b) if a != b => break (a, b),
@@ -97,7 +104,7 @@ pub fn url_relative_to<'a>(from: &UrlBuf, to: &'a UrlBuf) -> Result<Cow<'a, UrlB
 	let rest = t_head.into_iter().chain(t_it);
 
 	let buf: PathBuf = dots.chain(rest).collect();
-	Ok(UrlBuf { loc: LocBuf::zeroed(buf), scheme: to.scheme.clone() }.into())
+	Ok(UrlBuf { loc: LocBuf::zeroed(buf), scheme: to.scheme().clone() }.into())
 }
 
 #[cfg(windows)]
@@ -123,16 +130,16 @@ pub fn backslash_to_slash(p: &std::path::Path) -> Cow<'_, std::path::Path> {
 
 #[cfg(test)]
 mod tests {
-	use std::borrow::Cow;
-
 	use super::url_relative_to;
 
 	#[test]
 	fn test_path_relative_to() {
+		yazi_shared::init_tests();
+
 		fn assert(from: &str, to: &str, ret: &str) {
 			assert_eq!(
 				url_relative_to(&from.parse().unwrap(), &to.parse().unwrap()).unwrap(),
-				Cow::Owned(ret.parse().unwrap())
+				ret.parse().unwrap()
 			);
 		}
 
