@@ -2,7 +2,7 @@ use std::{ffi::OsStr, hash::{Hash, Hasher}, ops::Deref, path::Path};
 
 use anyhow::{Result, bail};
 
-use crate::{loc::LocBuf, url::{Uri, Urn, UrnBuf}};
+use crate::{loc::LocBuf, url::{Uri, Urn}};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Loc<'a> {
@@ -15,6 +15,10 @@ impl Deref for Loc<'_> {
 	type Target = Path;
 
 	fn deref(&self) -> &Self::Target { self.inner }
+}
+
+impl AsRef<Path> for Loc<'_> {
+	fn as_ref(&self) -> &Path { self.inner }
 }
 
 impl<'a> From<&'a LocBuf> for Loc<'a> {
@@ -148,9 +152,6 @@ impl<'a> Loc<'a> {
 	}
 
 	#[inline]
-	pub fn urn_owned(self) -> UrnBuf { self.urn().to_owned() }
-
-	#[inline]
 	pub fn base(self) -> &'a Urn {
 		Urn::new(unsafe {
 			OsStr::from_encoded_bytes_unchecked(
@@ -175,7 +176,13 @@ impl<'a> Loc<'a> {
 	pub fn has_trail(self) -> bool { self.bytes().len() != self.urn }
 
 	#[inline]
-	pub fn name(self) -> &'a OsStr { self.inner.file_name().unwrap_or(OsStr::new("")) }
+	pub fn name(self) -> Option<&'a OsStr> { self.inner.file_name() }
+
+	#[inline]
+	pub fn stem(self) -> Option<&'a OsStr> { self.inner.file_stem() }
+
+	#[inline]
+	pub fn ext(self) -> Option<&'a OsStr> { self.inner.extension() }
 
 	#[inline]
 	pub fn parent(self) -> Option<&'a Path> { self.inner.parent() }
