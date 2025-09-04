@@ -1,30 +1,29 @@
 use anyhow::bail;
+use ordered_float::OrderedFloat;
 use serde::Serialize;
 use yazi_shared::event::CmdCow;
 
 pub struct UpdateProgressOpt {
-	pub progress: TasksProgress,
+	pub summary: TaskSummary,
 }
 
 impl TryFrom<CmdCow> for UpdateProgressOpt {
 	type Error = anyhow::Error;
 
 	fn try_from(mut c: CmdCow) -> Result<Self, Self::Error> {
-		let Some(progress) = c.take_any("progress") else {
-			bail!("Invalid 'progress' in UpdateProgressOpt");
+		let Some(summary) = c.take_any("summary") else {
+			bail!("Invalid 'summary' in UpdateProgressOpt");
 		};
 
-		Ok(Self { progress })
+		Ok(Self { summary })
 	}
 }
 
 // --- Progress
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
-pub struct TasksProgress {
-	pub total: u32,
-	pub succ:  u32,
-	pub fail:  u32,
-
-	pub found:     u64,
-	pub processed: u64,
+pub struct TaskSummary {
+	pub total:   u32,
+	pub success: u32,
+	pub failed:  u32,
+	pub percent: Option<OrderedFloat<f32>>,
 }

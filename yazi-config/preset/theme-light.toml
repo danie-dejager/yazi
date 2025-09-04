@@ -100,7 +100,7 @@ perm_exec  = { fg = "cyan" }
 # Progress
 progress_label  = { bold = true }
 progress_normal = { fg = "blue", bg = "black" }
-progress_error  = { fg = "red", bg = "black" }
+progress_error  = { fg = "blue", bg = "red" }
 
 # : }}}
 
@@ -202,7 +202,7 @@ icon_command = ""
 [tasks]
 border  = { fg = "blue" }
 title   = {}
-hovered = { fg = "magenta", underline = true }
+hovered = { fg = "magenta", bold = true }
 
 # : }}}
 

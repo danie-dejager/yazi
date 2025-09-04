@@ -119,7 +119,6 @@ impl Folder {
 		self.arrow(new - self.cursor as isize)
 	}
 
-	#[inline]
 	pub fn repos(&mut self, urn: Option<&Urn>) -> bool {
 		if let Some(u) = urn {
 			self.hover(u)
@@ -131,7 +130,7 @@ impl Folder {
 	}
 
 	pub fn sync_page(&mut self, force: bool) {
-		let limit = LAYOUT.get().limit();
+		let limit = LAYOUT.get().folder_limit();
 		if limit == 0 {
 			return;
 		}
@@ -146,7 +145,7 @@ impl Folder {
 		let old = self.offset;
 		let len = self.files.len();
 
-		let limit = LAYOUT.get().limit();
+		let limit = LAYOUT.get().folder_limit();
 		let scrolloff = (limit / 2).min(YAZI.mgr.scrolloff.get() as usize);
 
 		self.offset = if self.cursor < (self.offset + limit).min(len).saturating_sub(scrolloff) {
@@ -168,7 +167,7 @@ impl Folder {
 
 	pub fn paginate(&self, page: usize) -> &[File] {
 		let len = self.files.len();
-		let limit = LAYOUT.get().limit();
+		let limit = LAYOUT.get().folder_limit();
 
 		let start = (page.saturating_sub(1) * limit).min(len.saturating_sub(1));
 		let end = ((page + 2) * limit).min(len);
@@ -177,18 +176,13 @@ impl Folder {
 }
 
 impl Scrollable for Folder {
-	#[inline]
 	fn total(&self) -> usize { self.files.len() }
 
-	#[inline]
-	fn limit(&self) -> usize { LAYOUT.get().limit() }
+	fn limit(&self) -> usize { LAYOUT.get().folder_limit() }
 
-	#[inline]
 	fn scrolloff(&self) -> usize { (self.limit() / 2).min(YAZI.mgr.scrolloff.get() as usize) }
 
-	#[inline]
 	fn cursor_mut(&mut self) -> &mut usize { &mut self.cursor }
 
-	#[inline]
 	fn offset_mut(&mut self) -> &mut usize { &mut self.offset }
 }
