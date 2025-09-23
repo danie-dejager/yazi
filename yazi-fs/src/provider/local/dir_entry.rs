@@ -1,46 +1,18 @@
-use std::ops::Deref;
+use std::{borrow::Cow, ffi::OsStr, io, path::PathBuf};
 
-use yazi_shared::url::UrlBuf;
+use crate::{cha::{Cha, ChaType}, provider::FileHolder};
 
-pub struct DirEntry(tokio::fs::DirEntry);
+pub struct DirEntry(pub(super) tokio::fs::DirEntry);
 
-impl Deref for DirEntry {
-	type Target = tokio::fs::DirEntry;
+impl FileHolder for DirEntry {
+	fn path(&self) -> PathBuf { self.0.path() }
 
-	fn deref(&self) -> &Self::Target { &self.0 }
-}
+	fn name(&self) -> Cow<'_, OsStr> { self.0.file_name().into() }
 
-impl From<tokio::fs::DirEntry> for DirEntry {
-	fn from(value: tokio::fs::DirEntry) -> Self { Self(value) }
-}
+	async fn metadata(&self) -> io::Result<Cha> {
+		let name = self.name(); // TODO: use `file_name_os_str` when stabilized
+		Ok(Cha::new(&name, self.0.metadata().await?))
+	}
 
-impl From<DirEntry> for crate::provider::DirEntry {
-	fn from(value: DirEntry) -> Self { crate::provider::DirEntry::Local(value) }
-}
-
-impl DirEntry {
-	#[must_use]
-	pub fn url(&self) -> UrlBuf { self.0.path().into() }
-}
-
-// --- DirEntrySync
-pub struct DirEntrySync(std::fs::DirEntry);
-
-impl Deref for DirEntrySync {
-	type Target = std::fs::DirEntry;
-
-	fn deref(&self) -> &Self::Target { &self.0 }
-}
-
-impl From<std::fs::DirEntry> for DirEntrySync {
-	fn from(value: std::fs::DirEntry) -> Self { Self(value) }
-}
-
-impl From<DirEntrySync> for crate::provider::DirEntrySync {
-	fn from(value: DirEntrySync) -> Self { crate::provider::DirEntrySync::Local(value) }
-}
-
-impl DirEntrySync {
-	#[must_use]
-	pub fn url(&self) -> UrlBuf { self.0.path().into() }
+	async fn file_type(&self) -> io::Result<ChaType> { self.0.file_type().await.map(Into::into) }
 }

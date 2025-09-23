@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use tokio::{io::{self, ErrorKind::{AlreadyExists, NotFound}}, sync::mpsc};
 use tracing::warn;
 use yazi_config::YAZI;
-use yazi_fs::{cha::Cha, copy_with_progress, maybe_exists, ok_or_not_found, path::{path_relative_to, skip_url}, provider::{self, DirEntry}};
+use yazi_fs::{cha::Cha, copy_with_progress, maybe_exists, ok_or_not_found, path::{path_relative_to, skip_url}, provider::{self, DirEntry, DirReader, FileHolder}};
 use yazi_shared::url::{Url, UrlBuf, UrlCow};
 
 use super::{FileInDelete, FileInHardlink, FileInLink, FileInPaste, FileInTrash};
@@ -69,9 +69,9 @@ impl File {
 			});
 
 			let mut it = continue_unless_ok!(provider::read_dir(&src).await);
-			while let Ok(Some(entry)) = it.next_entry().await {
+			while let Ok(Some(entry)) = it.next().await {
 				let from = entry.url();
-				let cha = continue_unless_ok!(Self::cha_from(entry, &from, task.follow).await);
+				let cha = continue_unless_ok!(Self::entry_cha(entry, &from, task.follow).await);
 
 				if cha.is_dir() {
 					dirs.push_back(from);
@@ -203,9 +203,9 @@ impl File {
 			});
 
 			let mut it = continue_unless_ok!(provider::read_dir(&src).await);
-			while let Ok(Some(entry)) = it.next_entry().await {
+			while let Ok(Some(entry)) = it.next().await {
 				let from = entry.url();
-				let cha = continue_unless_ok!(Self::cha_from(entry, &from, task.follow).await);
+				let cha = continue_unless_ok!(Self::entry_cha(entry, &from, task.follow).await);
 
 				if cha.is_dir() {
 					dirs.push_back(from);
@@ -237,11 +237,11 @@ impl File {
 	}
 
 	pub(crate) async fn delete(&self, mut task: FileInDelete) -> Result<(), FileOutDelete> {
-		let meta = provider::symlink_metadata(&task.target).await?;
-		if !meta.is_dir() {
+		let cha = provider::symlink_metadata(&task.target).await?;
+		if !cha.is_dir() {
 			let id = task.id;
-			task.length = meta.len();
-			self.ops.out(id, FileOutDelete::New(meta.len()));
+			task.length = cha.len;
+			self.ops.out(id, FileOutDelete::New(cha.len));
 			self.queue(task, NORMAL);
 			self.ops.out(id, FileOutDelete::Init);
 			return Ok(());
@@ -251,17 +251,17 @@ impl File {
 		while let Some(target) = dirs.pop_front() {
 			let Ok(mut it) = provider::read_dir(&target).await else { continue };
 
-			while let Ok(Some(entry)) = it.next_entry().await {
-				let Ok(meta) = entry.metadata().await else { continue };
+			while let Ok(Some(entry)) = it.next().await {
+				let Ok(cha) = entry.metadata().await else { continue };
 
-				if meta.is_dir() {
+				if cha.is_dir() {
 					dirs.push_front(entry.url());
 					continue;
 				}
 
 				task.target = entry.url();
-				task.length = meta.len();
-				self.ops.out(task.id, FileOutDelete::New(meta.len()));
+				task.length = cha.len;
+				self.ops.out(task.id, FileOutDelete::New(cha.len));
 				self.queue(task.clone(), NORMAL);
 			}
 		}
@@ -291,16 +291,16 @@ impl File {
 	#[inline]
 	async fn cha<'a>(url: impl Into<Url<'a>>, follow: bool) -> io::Result<Cha> {
 		let url = url.into();
-		let meta = provider::symlink_metadata(url).await?;
-		Ok(if follow { Cha::from_follow(url, meta).await } else { Cha::new(url, meta) })
+		let cha = provider::symlink_metadata(url).await?;
+		Ok(if follow { Cha::from_follow(url, cha).await } else { cha })
 	}
 
 	#[inline]
-	async fn cha_from(entry: DirEntry, url: &UrlBuf, follow: bool) -> io::Result<Cha> {
+	async fn entry_cha(entry: DirEntry, url: &UrlBuf, follow: bool) -> io::Result<Cha> {
 		Ok(if follow {
 			Cha::from_follow(url, entry.metadata().await?).await
 		} else {
-			Cha::new(url, entry.metadata().await?)
+			entry.metadata().await?
 		})
 	}
 }

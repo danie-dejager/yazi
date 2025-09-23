@@ -13,14 +13,14 @@ pub(crate) struct Backend {
 impl Backend {
 	pub(crate) fn serve(out_tx: mpsc::UnboundedSender<UrlBuf>) -> Self {
 		#[cfg(any(target_os = "linux", target_os = "macos"))]
-		yazi_fs::mounts::Partitions::monitor(yazi_fs::mounts::PARTITIONS.clone(), || {
+		yazi_fs::mounts::Partitions::monitor(&yazi_fs::mounts::PARTITIONS, || {
 			yazi_macro::err!(yazi_dds::Pubsub::pub_after_mount())
 		});
 
 		Self { local: backend::Local::serve(out_tx) }
 	}
 
-	pub(crate) async fn sync(mut self, to_unwatch: Vec<UrlBuf>, to_watch: Vec<UrlBuf>) -> Backend {
+	pub(crate) async fn sync(mut self, to_unwatch: Vec<UrlBuf>, to_watch: Vec<UrlBuf>) -> Self {
 		if to_unwatch.is_empty() && to_watch.is_empty() {
 			return self;
 		}

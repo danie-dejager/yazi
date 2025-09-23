@@ -1,31 +1,28 @@
-use std::fs::Metadata;
+use std::{ffi::OsStr, fs::Metadata};
 
 use bitflags::bitflags;
-use yazi_shared::url::Url;
 
 bitflags! {
 	#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 	pub struct ChaKind: u8 {
-		const DIR    = 0b00000001;
-
-		const HIDDEN = 0b00000010;
-		const LINK   = 0b00000100;
-		const ORPHAN = 0b00001000;
-
-		const DUMMY  = 0b00010000;
-		#[cfg(windows)]
-		const SYSTEM = 0b00100000;
+		const FOLLOW = 0b0000_0001;
+		const HIDDEN = 0b0000_0010;
+		const SYSTEM = 0b0000_0100;
+		const DUMMY  = 0b0000_1000;
 	}
 }
 
 impl ChaKind {
 	#[inline]
-	pub(super) fn hidden<'a>(_url: impl Into<Url<'a>>, _meta: &Metadata) -> Self {
+	pub(super) fn hidden(_name: &OsStr, _meta: &Metadata) -> Self {
 		let mut me = Self::empty();
 
 		#[cfg(unix)]
-		if _url.into().urn().is_hidden() {
-			me |= Self::HIDDEN;
+		{
+			use std::os::unix::ffi::OsStrExt;
+			if _name.as_bytes().starts_with(b".") {
+				me |= Self::HIDDEN;
+			}
 		}
 		#[cfg(windows)]
 		{

@@ -7,7 +7,7 @@ use scopeguard::defer;
 use tokio::io::AsyncWriteExt;
 use yazi_config::{YAZI, opener::OpenerRule};
 use yazi_dds::Pubsub;
-use yazi_fs::{File, FilesOp, max_common_root, maybe_exists, path::skip_url, provider::{self, local::{Gate, Local}}};
+use yazi_fs::{File, FilesOp, max_common_root, maybe_exists, path::skip_url, provider::{self, FileBuilder, Provider, local::{Gate, Local}}};
 use yazi_macro::{err, succ};
 use yazi_parser::VoidOpt;
 use yazi_proxy::{AppProxy, HIDER, TasksProxy};
@@ -49,7 +49,7 @@ impl Actor for BulkRename {
 				.write_all(old.join(OsStr::new("\n")).as_encoded_bytes())
 				.await?;
 
-			defer! { tokio::spawn(Local::remove_file(tmp.clone())); }
+			defer! { tokio::spawn(Local.remove_file(tmp.clone())); }
 			TasksProxy::process_exec(Cow::Borrowed(opener), cwd, vec![
 				OsString::new(),
 				tmp.to_owned().into(),
@@ -60,7 +60,8 @@ impl Actor for BulkRename {
 			defer!(AppProxy::resume());
 			AppProxy::stop().await;
 
-			let new: Vec<_> = Local::read_to_string(&tmp)
+			let new: Vec<_> = Local
+				.read_to_string(&tmp)
 				.await?
 				.lines()
 				.take(old.len())

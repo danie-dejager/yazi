@@ -3,7 +3,7 @@ use std::str::FromStr;
 use mlua::{ExternalError, Function, IntoLua, IntoLuaMulti, Lua, Table, Value};
 use yazi_binding::{Cha, Composer, ComposerGet, ComposerSet, Error, File, Url, UrlRef};
 use yazi_config::Pattern;
-use yazi_fs::{mounts::PARTITIONS, provider, remove_dir_clean};
+use yazi_fs::{mounts::PARTITIONS, provider::{self, DirReader, FileHolder}, remove_dir_clean};
 use yazi_shared::url::UrlCow;
 
 use crate::bindings::SizeCalculator;
@@ -50,14 +50,14 @@ fn cwd(lua: &Lua) -> mlua::Result<Function> {
 
 fn cha(lua: &Lua) -> mlua::Result<Function> {
 	lua.create_async_function(|lua, (url, follow): (UrlRef, Option<bool>)| async move {
-		let meta = if follow.unwrap_or(false) {
+		let cha = if follow.unwrap_or(false) {
 			provider::metadata(&*url).await
 		} else {
 			provider::symlink_metadata(&*url).await
 		};
 
-		match meta {
-			Ok(m) => Cha(yazi_fs::cha::Cha::new(&*url, m)).into_lua_multi(&lua),
+		match cha {
+			Ok(c) => Cha(c).into_lua_multi(&lua),
 			Err(e) => (Value::Nil, Error::Io(e)).into_lua_multi(&lua),
 		}
 	})
@@ -121,7 +121,7 @@ fn read_dir(lua: &Lua) -> mlua::Result<Function> {
 		};
 
 		let mut files = vec![];
-		while let Ok(Some(next)) = it.next_entry().await {
+		while let Ok(Some(next)) = it.next().await {
 			let url = next.url();
 			if pat.as_ref().is_some_and(|p| !p.match_url(&url, p.is_dir)) {
 				continue;
@@ -129,8 +129,8 @@ fn read_dir(lua: &Lua) -> mlua::Result<Function> {
 
 			let file = if !resolve {
 				yazi_fs::File::from_dummy(url, next.file_type().await.ok())
-			} else if let Ok(meta) = next.metadata().await {
-				yazi_fs::File::from_follow(url, meta).await
+			} else if let Ok(cha) = next.metadata().await {
+				yazi_fs::File::from_follow(url, cha).await
 			} else {
 				yazi_fs::File::from_dummy(url, next.file_type().await.ok())
 			};
@@ -147,8 +147,14 @@ fn read_dir(lua: &Lua) -> mlua::Result<Function> {
 
 fn calc_size(lua: &Lua) -> mlua::Result<Function> {
 	lua.create_async_function(|lua, url: UrlRef| async move {
-		match yazi_fs::SizeCalculator::new(&url).await {
-			Ok(it) => SizeCalculator(it).into_lua_multi(&lua),
+		let it = if let Some(path) = url.as_path() {
+			provider::local::SizeCalculator::new(path).await.map(SizeCalculator::Local)
+		} else {
+			provider::SizeCalculator::new(&*url).await.map(SizeCalculator::Remote)
+		};
+
+		match it {
+			Ok(it) => it.into_lua_multi(&lua),
 			Err(e) => (Value::Nil, Error::Io(e)).into_lua_multi(&lua),
 		}
 	})

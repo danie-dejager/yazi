@@ -1,9 +1,11 @@
-use std::{io::BufWriter, path::PathBuf, str::FromStr};
+use std::{io::BufWriter, path::{Path, PathBuf}, str::FromStr};
 
 use anyhow::{Result, bail};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use twox_hash::XxHash3_128;
-use yazi_fs::Xdg;
+use yazi_fs::provider::{DirReader, FileHolder, Provider, local::Local};
+use yazi_shared::BytesExt;
+use yazi_vfs::local::Xdg;
 
 #[derive(Clone, Default)]
 pub(crate) struct Dependency {
@@ -59,6 +61,30 @@ impl Dependency {
 		)?;
 		Ok(())
 	}
+
+	pub(super) async fn plugin_files(dir: &Path) -> std::io::Result<Vec<String>> {
+		let mut it = Local.read_dir(dir).await?;
+		let mut files: Vec<String> =
+			["LICENSE", "README.md", "main.lua"].into_iter().map(Into::into).collect();
+		while let Some(entry) = it.next().await? {
+			if let Ok(name) = entry.name().into_owned().into_string()
+				&& let Some(stripped) = name.strip_suffix(".lua")
+				&& stripped != "main"
+				&& stripped.as_bytes().kebab_cased()
+			{
+				files.push(name);
+			}
+		}
+		files.sort_unstable();
+		Ok(files)
+	}
+
+	pub(super) fn flavor_files() -> Vec<String> {
+		["LICENSE", "LICENSE-tmtheme", "README.md", "flavor.toml", "preview.png", "tmtheme.xml"]
+			.into_iter()
+			.map(Into::into)
+			.collect()
+	}
 }
 
 impl FromStr for Dependency {
@@ -67,15 +93,15 @@ impl FromStr for Dependency {
 	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
 		let mut parts = s.splitn(2, ':');
 
-		let Some(parent) = parts.next() else { bail!("Package url cannot be empty") };
+		let Some(parent) = parts.next() else { bail!("Package URL cannot be empty") };
 		let child = parts.next().unwrap_or_default();
 
 		let Some((_, repo)) = parent.split_once('/') else {
-			bail!("Package url `{parent}` must be in the format `owner/repo`")
+			bail!("Package URL `{parent}` must be in the format `owner/repository`")
 		};
 
 		let name = if child.is_empty() { repo } else { child };
-		if !name.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'z' | b'-')) {
+		if !name.as_bytes().kebab_cased() {
 			bail!("Package name `{name}` must be in kebab-case")
 		}
 

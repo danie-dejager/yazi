@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use yazi_fs::{provider::local::Local, remove_dir_clean};
+use yazi_fs::{provider::{DirReader, FileHolder, Provider, local::Local}, remove_dir_clean};
 use yazi_macro::outln;
 
 use super::Dependency;
@@ -20,7 +20,7 @@ impl Dependency {
 			self.hash_check().await?;
 		}
 
-		Local::create_dir_all(&to).await?;
+		Local.create_dir_all(&to).await?;
 		self.delete_assets().await?;
 
 		let res1 = Self::deploy_assets(from.join("assets"), to.join("assets")).await;
@@ -40,11 +40,11 @@ impl Dependency {
 	}
 
 	async fn deploy_assets(from: PathBuf, to: PathBuf) -> Result<()> {
-		match Local::read_dir(&from).await {
+		match Local.read_dir(&from).await {
 			Ok(mut it) => {
-				Local::create_dir_all(&to).await?;
-				while let Some(entry) = it.next_entry().await? {
-					let (src, dist) = (entry.path(), to.join(entry.file_name()));
+				Local.create_dir_all(&to).await?;
+				while let Some(entry) = it.next().await? {
+					let (src, dist) = (entry.path(), to.join(entry.name()));
 					copy_and_seal(&src, &dist).await.with_context(|| {
 						format!("failed to copy `{}` to `{}`", src.display(), dist.display())
 					})?;
@@ -57,14 +57,9 @@ impl Dependency {
 	}
 
 	async fn deploy_sources(from: &Path, to: &Path, is_flavor: bool) -> Result<()> {
-		let files = if is_flavor {
-			&["flavor.toml", "tmtheme.xml", "README.md", "preview.png", "LICENSE", "LICENSE-tmtheme"][..]
-		} else {
-			&["main.lua", "README.md", "LICENSE"][..]
-		};
-
+		let files = if is_flavor { Self::flavor_files() } else { Self::plugin_files(from).await? };
 		for file in files {
-			let (from, to) = (from.join(file), to.join(file));
+			let (from, to) = (from.join(&file), to.join(&file));
 			copy_and_seal(&from, &to)
 				.await
 				.with_context(|| format!("failed to copy `{}` to `{}`", from.display(), to.display()))?;

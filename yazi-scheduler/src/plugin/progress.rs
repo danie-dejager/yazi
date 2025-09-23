@@ -23,5 +23,7 @@ impl PluginProgEntry {
 
 	pub fn success(self) -> bool { self.state == Some(true) }
 
+	pub fn cleaned(self) -> bool { false }
+
 	pub fn percent(self) -> Option<f32> { None }
 }

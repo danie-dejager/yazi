@@ -1,68 +1,56 @@
-use std::{ffi::OsString, io};
+use std::{borrow::Cow, ffi::OsStr, io, sync::Arc};
 
 use yazi_shared::url::UrlBuf;
 
+use crate::{cha::{Cha, ChaType}, provider::FileHolder};
+
 pub enum DirEntry {
-	Local(super::local::DirEntry),
+	Regular(super::local::DirEntry),
+	Search((Arc<UrlBuf>, super::local::DirEntry)),
+	Sftp((Arc<UrlBuf>, super::sftp::DirEntry)),
+}
+
+impl FileHolder for DirEntry {
+	fn path(&self) -> std::path::PathBuf {
+		match self {
+			Self::Regular(ent) => ent.path(),
+			Self::Search((_, ent)) => ent.path(),
+			Self::Sftp((_, ent)) => ent.path(),
+		}
+	}
+
+	fn name(&self) -> Cow<'_, OsStr> {
+		match self {
+			Self::Regular(ent) => ent.name(),
+			Self::Search((_, ent)) => ent.name(),
+			Self::Sftp((_, ent)) => ent.name(),
+		}
+	}
+
+	async fn metadata(&self) -> io::Result<Cha> {
+		match self {
+			Self::Regular(ent) => ent.metadata().await,
+			Self::Search((_, ent)) => ent.metadata().await,
+			Self::Sftp((_, ent)) => ent.metadata().await,
+		}
+	}
+
+	async fn file_type(&self) -> io::Result<ChaType> {
+		match self {
+			Self::Regular(ent) => ent.file_type().await,
+			Self::Search((_, ent)) => ent.file_type().await,
+			Self::Sftp((_, ent)) => ent.file_type().await,
+		}
+	}
 }
 
 impl DirEntry {
 	#[must_use]
 	pub fn url(&self) -> UrlBuf {
 		match self {
-			DirEntry::Local(local) => local.url(),
-		}
-	}
-
-	#[must_use]
-	pub fn file_name(&self) -> OsString {
-		match self {
-			DirEntry::Local(local) => local.file_name(),
-		}
-	}
-
-	pub async fn metadata(&self) -> io::Result<std::fs::Metadata> {
-		match self {
-			DirEntry::Local(local) => local.metadata().await,
-		}
-	}
-
-	pub async fn file_type(&self) -> io::Result<std::fs::FileType> {
-		match self {
-			DirEntry::Local(local) => local.file_type().await,
-		}
-	}
-}
-
-// --- DirEntrySync
-pub enum DirEntrySync {
-	Local(super::local::DirEntrySync),
-}
-
-impl DirEntrySync {
-	#[must_use]
-	pub fn url(&self) -> UrlBuf {
-		match self {
-			DirEntrySync::Local(local) => local.url(),
-		}
-	}
-
-	#[must_use]
-	pub fn file_name(&self) -> OsString {
-		match self {
-			DirEntrySync::Local(local) => local.file_name(),
-		}
-	}
-
-	pub fn metadata(&self) -> io::Result<std::fs::Metadata> {
-		match self {
-			DirEntrySync::Local(local) => local.metadata(),
-		}
-	}
-
-	pub fn file_type(&self) -> io::Result<std::fs::FileType> {
-		match self {
-			DirEntrySync::Local(local) => local.file_type(),
+			Self::Regular(ent) => ent.path().into(),
+			Self::Search((dir, ent)) => dir.join(ent.name()),
+			Self::Sftp((dir, ent)) => dir.join(ent.name()),
 		}
 	}
 }

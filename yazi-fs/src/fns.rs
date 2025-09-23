@@ -2,7 +2,7 @@ use anyhow::Result;
 use tokio::{io, select, sync::{mpsc, oneshot}, time};
 use yazi_shared::url::{Component, Url, UrlBuf};
 
-use crate::{cha::Cha, provider};
+use crate::{cha::Cha, provider::{self, DirReader, FileHolder}};
 
 #[inline]
 pub async fn maybe_exists<'a>(url: impl Into<Url<'a>>) -> bool {
@@ -68,7 +68,7 @@ pub fn copy_with_progress(
 					None => {}
 				}
 
-				let len = provider::symlink_metadata(&to).await.map(|m| m.len()).unwrap_or(0);
+				let len = provider::symlink_metadata(&to).await.map(|m| m.len).unwrap_or(0);
 				if len > last {
 					prog_tx.send(Ok(len - last)).await.ok();
 					last = len;
@@ -83,68 +83,15 @@ pub fn copy_with_progress(
 pub async fn remove_dir_clean(dir: &UrlBuf) {
 	let Ok(mut it) = provider::read_dir(dir).await else { return };
 
-	while let Ok(Some(entry)) = it.next_entry().await {
-		if entry.file_type().await.is_ok_and(|t| t.is_dir()) {
-			let url = entry.url();
+	while let Ok(Some(ent)) = it.next().await {
+		if ent.file_type().await.is_ok_and(|t| t.is_dir()) {
+			let url = ent.url();
 			Box::pin(remove_dir_clean(&url)).await;
 			provider::remove_dir(&url).await.ok();
 		}
 	}
 
 	provider::remove_dir(dir).await.ok();
-}
-
-// Convert a file mode to a string representation
-#[cfg(unix)]
-#[allow(clippy::collapsible_else_if)]
-pub fn permissions(m: libc::mode_t, dummy: bool) -> String {
-	use libc::{S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFSOCK, S_IRGRP, S_IROTH, S_IRUSR, S_ISGID, S_ISUID, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR};
-	let mut s = String::with_capacity(10);
-
-	// Filetype
-	s.push(match m & S_IFMT {
-		S_IFBLK => 'b',
-		S_IFCHR => 'c',
-		S_IFDIR => 'd',
-		S_IFIFO => 'p',
-		S_IFLNK => 'l',
-		S_IFSOCK => 's',
-		_ => '-',
-	});
-
-	if dummy {
-		s.push_str("?????????");
-		return s;
-	}
-
-	// Owner
-	s.push(if m & S_IRUSR != 0 { 'r' } else { '-' });
-	s.push(if m & S_IWUSR != 0 { 'w' } else { '-' });
-	s.push(if m & S_IXUSR != 0 {
-		if m & S_ISUID != 0 { 's' } else { 'x' }
-	} else {
-		if m & S_ISUID != 0 { 'S' } else { '-' }
-	});
-
-	// Group
-	s.push(if m & S_IRGRP != 0 { 'r' } else { '-' });
-	s.push(if m & S_IWGRP != 0 { 'w' } else { '-' });
-	s.push(if m & S_IXGRP != 0 {
-		if m & S_ISGID != 0 { 's' } else { 'x' }
-	} else {
-		if m & S_ISGID != 0 { 'S' } else { '-' }
-	});
-
-	// Other
-	s.push(if m & S_IROTH != 0 { 'r' } else { '-' });
-	s.push(if m & S_IWOTH != 0 { 'w' } else { '-' });
-	s.push(if m & S_IXOTH != 0 {
-		if m & S_ISVTX != 0 { 't' } else { 'x' }
-	} else {
-		if m & S_ISVTX != 0 { 'T' } else { '-' }
-	});
-
-	s
 }
 
 // Find the max common root in a list of urls

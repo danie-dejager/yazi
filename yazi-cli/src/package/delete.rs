@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use yazi_fs::{ok_or_not_found, provider::local::Local, remove_dir_clean};
+use yazi_fs::{ok_or_not_found, provider::{DirReader, FileHolder, Provider, local::Local}, remove_dir_clean};
 use yazi_macro::outln;
 
 use super::Dependency;
@@ -23,9 +23,9 @@ impl Dependency {
 
 	pub(super) async fn delete_assets(&self) -> Result<()> {
 		let assets = self.target().join("assets");
-		match Local::read_dir(&assets).await {
+		match Local.read_dir(&assets).await {
 			Ok(mut it) => {
-				while let Some(entry) = it.next_entry().await? {
+				while let Some(entry) = it.next().await? {
 					remove_sealed(&entry.path())
 						.await
 						.with_context(|| format!("failed to remove `{}`", entry.path().display()))?;
@@ -41,18 +41,15 @@ impl Dependency {
 
 	pub(super) async fn delete_sources(&self) -> Result<()> {
 		let dir = self.target();
-		let files = if self.is_flavor {
-			&["flavor.toml", "tmtheme.xml", "README.md", "preview.png", "LICENSE", "LICENSE-tmtheme"][..]
-		} else {
-			&["main.lua", "README.md", "LICENSE"][..]
-		};
+		let files =
+			if self.is_flavor { Self::flavor_files() } else { Self::plugin_files(&dir).await? };
 
-		for p in files.iter().map(|&f| dir.join(f)) {
-			ok_or_not_found(remove_sealed(&p).await)
-				.with_context(|| format!("failed to delete `{}`", p.display()))?;
+		for path in files.iter().map(|s| dir.join(s)) {
+			ok_or_not_found(remove_sealed(&path).await)
+				.with_context(|| format!("failed to delete `{}`", path.display()))?;
 		}
 
-		if ok_or_not_found(Local::remove_dir(&dir).await).is_ok() {
+		if ok_or_not_found(Local.remove_dir(&dir).await).is_ok() {
 			outln!("Done!")?;
 		} else {
 			outln!(

@@ -101,6 +101,27 @@ impl TaskProg {
 		}
 	}
 
+	pub fn cleaned(self) -> bool {
+		match self {
+			// File
+			Self::FilePaste(p) => p.cleaned(),
+			Self::FileLink(p) => p.cleaned(),
+			Self::FileHardlink(p) => p.cleaned(),
+			Self::FileDelete(p) => p.cleaned(),
+			Self::FileTrash(p) => p.cleaned(),
+			// Plugin
+			Self::PluginEntry(p) => p.cleaned(),
+			// Prework
+			Self::PreworkFetch(p) => p.cleaned(),
+			Self::PreworkLoad(p) => p.cleaned(),
+			Self::PreworkSize(p) => p.cleaned(),
+			// Process
+			Self::ProcessBlock(p) => p.cleaned(),
+			Self::ProcessOrphan(p) => p.cleaned(),
+			Self::ProcessBg(p) => p.cleaned(),
+		}
+	}
+
 	pub fn percent(self) -> Option<f32> {
 		match self {
 			// File

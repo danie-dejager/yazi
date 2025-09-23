@@ -5,7 +5,7 @@ use tokio::{select, sync::mpsc::{self, UnboundedReceiver}};
 use yazi_shared::{Id, url::{UrlBuf, Urn, UrnBuf}};
 
 use super::{FilesSorter, Filter};
-use crate::{FILES_TICKET, File, FilesOp, SortBy, cha::Cha, mounts::PARTITIONS, provider::{self, DirEntry}};
+use crate::{FILES_TICKET, File, FilesOp, SortBy, cha::Cha, mounts::PARTITIONS, provider::{self, DirEntry, DirReader, FileHolder}};
 
 #[derive(Default)]
 pub struct Files {
@@ -40,14 +40,14 @@ impl Files {
 		let (tx, rx) = mpsc::unbounded_channel();
 
 		tokio::spawn(async move {
-			while let Ok(Some(item)) = it.next_entry().await {
+			while let Ok(Some(ent)) = it.next().await {
 				select! {
 					_ = tx.closed() => break,
-					result = item.metadata() => {
-						let url = item.url();
+					result = ent.metadata() => {
+						let url = ent.url();
 						_ = tx.send(match result {
-							Ok(meta) => File::from_follow(url, meta).await,
-							Err(_) => File::from_dummy(url, item.file_type().await.ok())
+							Ok(cha) => File::from_follow(url, cha).await,
+							Err(_) => File::from_dummy(url, ent.file_type().await.ok())
 						});
 					}
 				}
@@ -59,7 +59,7 @@ impl Files {
 	pub async fn from_dir_bulk(dir: &UrlBuf) -> std::io::Result<Vec<File>> {
 		let mut it = provider::read_dir(dir).await?;
 		let mut entries = Vec::with_capacity(5000);
-		while let Ok(Some(entry)) = it.next_entry().await {
+		while let Ok(Some(entry)) = it.next().await {
 			entries.push(entry);
 		}
 
@@ -67,11 +67,11 @@ impl Files {
 		let (second, third) = rest.split_at(entries.len() / 3);
 		async fn go(entries: &[DirEntry]) -> Vec<File> {
 			let mut files = Vec::with_capacity(entries.len());
-			for entry in entries {
-				let url = entry.url();
-				files.push(match entry.metadata().await {
-					Ok(meta) => File::from_follow(url, meta).await,
-					Err(_) => File::from_dummy(url, entry.file_type().await.ok()),
+			for ent in entries {
+				let url = ent.url();
+				files.push(match ent.metadata().await {
+					Ok(cha) => File::from_follow(url, cha).await,
+					Err(_) => File::from_dummy(url, ent.file_type().await.ok()),
 				});
 			}
 			files
