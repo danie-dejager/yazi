@@ -1,6 +1,6 @@
 use std::{io, path::{Path, PathBuf}, sync::Arc};
 
-use yazi_shared::{scheme::SchemeRef, url::Url};
+use yazi_shared::{scheme::SchemeRef, url::{Url, UrlCow}};
 use yazi_vfs::config::{ProviderSftp, Vfs};
 
 use super::local::Local;
@@ -34,13 +34,13 @@ impl Provider for Providers<'_> {
 	type Gate = super::Gate;
 	type ReadDir = super::ReadDir;
 
-	fn cache<P>(&self, path: P) -> Option<PathBuf>
+	async fn absolute<'a, U>(&self, url: U) -> io::Result<UrlCow<'a>>
 	where
-		P: AsRef<Path>,
+		U: Into<Url<'a>>,
 	{
 		match self.0 {
-			Inner::Regular | Inner::Search(_) => Local.cache(path),
-			Inner::Sftp((p, _)) => p.cache(path),
+			Inner::Regular | Inner::Search(_) => Local.absolute(url).await,
+			Inner::Sftp((p, _)) => p.absolute(url).await,
 		}
 	}
 
@@ -51,6 +51,16 @@ impl Provider for Providers<'_> {
 		match self.0 {
 			Inner::Regular | Inner::Search(_) => Local.canonicalize(path).await,
 			Inner::Sftp((p, _)) => p.canonicalize(path).await,
+		}
+	}
+
+	async fn casefold<P>(&self, path: P) -> io::Result<PathBuf>
+	where
+		P: AsRef<Path>,
+	{
+		match self.0 {
+			Inner::Regular | Inner::Search(_) => Local.casefold(path).await,
+			Inner::Sftp((p, _)) => p.casefold(path).await,
 		}
 	}
 
