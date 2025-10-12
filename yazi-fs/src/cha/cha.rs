@@ -2,10 +2,10 @@ use std::{ffi::OsStr, fs::Metadata, ops::Deref, time::{Duration, SystemTime, UNI
 
 use anyhow::bail;
 use yazi_macro::{unix_either, win_either};
-use yazi_shared::url::Url;
+use yazi_shared::url::AsUrl;
 
 use super::ChaKind;
-use crate::{cha::{ChaMode, ChaType}, provider};
+use crate::cha::{ChaMode, ChaType};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cha {
@@ -52,36 +52,15 @@ impl Cha {
 		Self::from_bare(&meta).attach(ChaKind::hidden(name, &meta))
 	}
 
-	#[inline]
-	pub async fn from_url<'a>(url: impl Into<Url<'a>>) -> std::io::Result<Self> {
-		let url = url.into();
-		Ok(Self::from_follow(url, provider::symlink_metadata(url).await?).await)
-	}
-
-	pub async fn from_follow<'a, U>(url: U, mut cha: Self) -> Self
+	pub fn from_dummy<U>(_url: U, r#type: Option<ChaType>) -> Self
 	where
-		U: Into<Url<'a>>,
-	{
-		let url: Url = url.into();
-		let mut retain = cha.kind & (ChaKind::HIDDEN | ChaKind::SYSTEM);
-
-		if cha.is_link() {
-			retain |= ChaKind::FOLLOW;
-			cha = provider::metadata(url).await.unwrap_or(cha);
-		}
-
-		cha.attach(retain)
-	}
-
-	pub fn from_dummy<'a, U>(_url: U, r#type: Option<ChaType>) -> Self
-	where
-		U: Into<Url<'a>>,
+		U: AsUrl,
 	{
 		let mut kind = ChaKind::DUMMY;
 		let mode = r#type.map(ChaMode::from_bare).unwrap_or_default();
 
 		#[cfg(unix)]
-		if _url.into().urn().is_hidden() {
+		if _url.as_url().urn().is_hidden() {
 			kind |= ChaKind::HIDDEN;
 		}
 
@@ -140,7 +119,7 @@ impl Cha {
 	}
 
 	#[inline]
-	fn attach(mut self, kind: ChaKind) -> Self {
+	pub fn attach(mut self, kind: ChaKind) -> Self {
 		self.kind |= kind;
 		self
 	}

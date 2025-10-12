@@ -2,7 +2,7 @@ use std::{borrow::Cow, ffi::OsStr, io, path::{Path, PathBuf}};
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use yazi_macro::ok_or_not_found;
-use yazi_shared::{scheme::SchemeRef, url::{Url, UrlCow}};
+use yazi_shared::{scheme::SchemeRef, url::{AsUrl, UrlCow}};
 
 use crate::cha::{Cha, ChaType};
 
@@ -11,9 +11,9 @@ pub trait Provider {
 	type Gate: FileBuilder<File = Self::File>;
 	type ReadDir: DirReader;
 
-	fn absolute<'a, U>(&self, url: U) -> impl Future<Output = io::Result<UrlCow<'a>>>
+	fn absolute<'a, U>(&self, url: &'a U) -> impl Future<Output = io::Result<UrlCow<'a>>>
 	where
-		U: Into<Url<'a>>;
+		U: AsUrl;
 
 	fn canonicalize<P>(&self, path: P) -> impl Future<Output = io::Result<PathBuf>>
 	where
@@ -138,6 +138,30 @@ pub trait Provider {
 				self.remove_file(path).await
 			} else {
 				remove_dir_all_impl(self, path).await
+			}
+		}
+	}
+
+	fn remove_dir_clean<P>(&self, root: P) -> impl Future<Output = ()>
+	where
+		P: AsRef<Path>,
+	{
+		let root = root.as_ref().to_path_buf();
+
+		async move {
+			let mut stack = vec![(root, false)];
+
+			while let Some((dir, visited)) = stack.pop() {
+				if visited {
+					self.remove_dir(&dir).await.ok();
+				} else if let Ok(mut it) = self.read_dir(&dir).await {
+					stack.push((dir, true));
+					while let Ok(Some(ent)) = it.next().await {
+						if ent.file_type().await.is_ok_and(|t| t.is_dir()) {
+							stack.push((ent.path(), false));
+						}
+					}
+				}
 			}
 		}
 	}

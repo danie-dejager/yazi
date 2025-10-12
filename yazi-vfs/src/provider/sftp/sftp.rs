@@ -2,11 +2,12 @@ use std::{io, path::{Path, PathBuf}, sync::Arc};
 
 use russh::keys::PrivateKeyWithHashAlg;
 use tokio::io::{BufReader, BufWriter};
+use yazi_config::vfs::ProviderSftp;
+use yazi_fs::provider::{DirReader, FileBuilder, FileHolder, Provider, local::Local};
 use yazi_sftp::fs::{Attrs, Flags};
-use yazi_shared::{scheme::SchemeRef, url::{Url, UrlBuf, UrlCow}};
-use yazi_vfs::config::ProviderSftp;
+use yazi_shared::{scheme::SchemeRef, url::{AsUrl, UrlBuf, UrlCow}};
 
-use crate::{cha::Cha, provider::{DirReader, FileBuilder, FileHolder, Provider, local::Local}};
+use super::Cha;
 
 #[derive(Clone, Copy)]
 pub struct Sftp {
@@ -23,11 +24,11 @@ impl Provider for Sftp {
 	type Gate = super::Gate;
 	type ReadDir = super::ReadDir;
 
-	async fn absolute<'a, U>(&self, url: U) -> io::Result<UrlCow<'a>>
+	async fn absolute<'a, U>(&self, url: &'a U) -> io::Result<UrlCow<'a>>
 	where
-		U: Into<Url<'a>>,
+		U: AsUrl,
 	{
-		let url: Url = url.into();
+		let url = url.as_url();
 		Ok(if url.is_absolute() {
 			url.into()
 		} else if let SchemeRef::Sftp(_) = url.scheme {
@@ -76,12 +77,12 @@ impl Provider for Sftp {
 		similar.map(|n| parent.join(n)).ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
 	}
 
-	async fn copy<P, Q>(&self, from: P, to: Q, cha: Cha) -> io::Result<u64>
+	async fn copy<P, Q>(&self, from: P, to: Q, cha: yazi_fs::cha::Cha) -> io::Result<u64>
 	where
 		P: AsRef<Path>,
 		Q: AsRef<Path>,
 	{
-		let attrs = Attrs::from(cha);
+		let attrs = Attrs::from(Cha(cha));
 
 		let op = self.op().await?;
 		let from = op.open(&from, Flags::READ, &Attrs::default()).await?;
@@ -115,13 +116,13 @@ impl Provider for Sftp {
 		Ok(self.op().await?.hardlink(&original, &link).await?)
 	}
 
-	async fn metadata<P>(&self, path: P) -> io::Result<Cha>
+	async fn metadata<P>(&self, path: P) -> io::Result<yazi_fs::cha::Cha>
 	where
 		P: AsRef<Path>,
 	{
 		let path = path.as_ref();
 		let attrs = self.op().await?.stat(path).await?;
-		(path.file_name().unwrap_or_default(), &attrs).try_into()
+		Ok(Cha::try_from((path.file_name().unwrap_or_default(), &attrs))?.0)
 	}
 
 	async fn read_dir<P>(&self, path: P) -> io::Result<Self::ReadDir>
@@ -169,13 +170,13 @@ impl Provider for Sftp {
 		Ok(self.op().await?.symlink(&original, &link).await?)
 	}
 
-	async fn symlink_metadata<P>(&self, path: P) -> io::Result<Cha>
+	async fn symlink_metadata<P>(&self, path: P) -> io::Result<yazi_fs::cha::Cha>
 	where
 		P: AsRef<Path>,
 	{
 		let path = path.as_ref();
 		let attrs = self.op().await?.lstat(path).await?;
-		(path.file_name().unwrap_or_default(), &attrs).try_into()
+		Ok(Cha::try_from((path.file_name().unwrap_or_default(), &attrs))?.0)
 	}
 
 	async fn trash<P>(&self, _path: P) -> io::Result<()>
@@ -253,7 +254,7 @@ impl Sftp {
 
 		let session = if self.config.password.is_some() {
 			self.connect_by_password(pref).await
-		} else if self.config.key_file.is_some() {
+		} else if !self.config.key_file.as_os_str().is_empty() {
 			self.connect_by_key(pref).await
 		} else {
 			self.connect_by_agent(pref).await
@@ -286,7 +287,8 @@ impl Sftp {
 		self,
 		pref: Arc<russh::client::Config>,
 	) -> Result<russh::client::Handle<Self>, russh::Error> {
-		let Some(key_file) = &self.config.key_file else {
+		let key_file = &self.config.key_file;
+		if key_file.as_os_str().is_empty() {
 			return Err(russh::Error::InvalidConfig("Key file not provided".to_owned()));
 		};
 
@@ -321,7 +323,8 @@ impl Sftp {
 		self,
 		pref: Arc<russh::client::Config>,
 	) -> Result<russh::client::Handle<Self>, russh::Error> {
-		let Some(identity_agent) = &self.config.identity_agent else {
+		let identity_agent = &self.config.identity_agent;
+		if identity_agent.as_os_str().is_empty() {
 			return Err(russh::Error::InvalidConfig("Identity agent not provided".to_owned()));
 		};
 

@@ -4,8 +4,10 @@ use anyhow::{Result, anyhow};
 use tokio::{io::{self, ErrorKind::{AlreadyExists, NotFound}}, sync::mpsc};
 use tracing::warn;
 use yazi_config::YAZI;
-use yazi_fs::{cha::Cha, copy_with_progress, maybe_exists, ok_or_not_found, path::{path_relative_to, skip_url}, provider::{self, DirEntry, DirReader, FileHolder}};
-use yazi_shared::url::{Url, UrlBuf, UrlCow};
+use yazi_fs::{cha::Cha, ok_or_not_found, path::{path_relative_to, skip_url}, provider::{DirReader, FileHolder}};
+use yazi_macro::ok_or_not_found;
+use yazi_shared::url::{AsUrl, UrlBuf, UrlCow, UrlLike};
+use yazi_vfs::{VfsCha, copy_with_progress, maybe_exists, provider::{self, DirEntry}};
 
 use super::{FileInDelete, FileInHardlink, FileInLink, FileInPaste, FileInTrash};
 use crate::{LOW, NORMAL, TaskIn, TaskOp, TaskOps, file::{FileOutDelete, FileOutDeleteDo, FileOutHardlink, FileOutHardlinkDo, FileOutLink, FileOutPaste, FileOutPasteDo, FileOutTrash}};
@@ -25,7 +27,7 @@ impl File {
 
 	pub(crate) async fn paste(&self, mut task: FileInPaste) -> Result<(), FileOutPaste> {
 		if task.cut && ok_or_not_found(provider::rename(&task.from, &task.to).await).is_ok() {
-			return Ok(self.ops.out(task.id, FileOutPaste::Init));
+			return Ok(self.ops.out(task.id, FileOutPaste::Succ));
 		}
 
 		if task.cha.is_none() {
@@ -42,7 +44,7 @@ impl File {
 				self.ops.out(id, FileOutPaste::New(cha.len));
 				self.queue(task, LOW);
 			}
-			return Ok(self.ops.out(id, FileOutPaste::Init));
+			return Ok(self.ops.out(id, FileOutPaste::Succ));
 		}
 
 		macro_rules! continue_unless_ok {
@@ -89,11 +91,11 @@ impl File {
 			}
 		}
 
-		Ok(self.ops.out(task.id, FileOutPaste::Init))
+		Ok(self.ops.out(task.id, FileOutPaste::Succ))
 	}
 
 	pub(crate) async fn paste_do(&self, mut task: FileInPaste) -> Result<(), FileOutPasteDo> {
-		ok_or_not_found(provider::remove_file(&task.to).await)?;
+		ok_or_not_found!(provider::remove_file(&task.to).await);
 		let mut it = copy_with_progress(&task.from, &task.to, task.cha.unwrap());
 
 		while let Some(res) = it.recv().await {
@@ -131,13 +133,11 @@ impl File {
 
 	pub(crate) async fn link_do(&self, task: FileInLink) -> Result<(), FileOutLink> {
 		let src: Cow<_> = if task.resolve {
-			match provider::read_link(&task.from).await {
-				Ok(p) => p.into(),
-				Err(e) if e.kind() == NotFound => {
-					return Ok(self.ops.out(task.id, FileOutLink::Succ));
-				}
-				Err(e) => Err(e)?,
-			}
+			ok_or_not_found!(
+				provider::read_link(&task.from).await,
+				return Ok(self.ops.out(task.id, FileOutLink::Succ))
+			)
+			.into()
 		} else if task.from.scheme.covariant(&task.to.scheme) {
 			task.from.loc.as_path().into()
 		} else {
@@ -150,7 +150,7 @@ impl File {
 			src
 		};
 
-		ok_or_not_found(provider::remove_file(&task.to).await)?;
+		ok_or_not_found!(provider::remove_file(&task.to).await);
 		provider::symlink(&src, &task.to, async || {
 			Ok(match task.cha {
 				Some(cha) => cha.is_dir(),
@@ -175,7 +175,7 @@ impl File {
 			let id = task.id;
 			self.ops.out(id, FileOutHardlink::New);
 			self.queue(task, NORMAL);
-			self.ops.out(id, FileOutHardlink::Init);
+			self.ops.out(id, FileOutHardlink::Succ);
 			return Ok(());
 		}
 
@@ -218,7 +218,7 @@ impl File {
 			}
 		}
 
-		Ok(self.ops.out(task.id, FileOutHardlink::Init))
+		Ok(self.ops.out(task.id, FileOutHardlink::Succ))
 	}
 
 	pub(crate) async fn hardlink_do(&self, task: FileInHardlink) -> Result<(), FileOutHardlinkDo> {
@@ -230,8 +230,8 @@ impl File {
 			UrlCow::from(&task.from)
 		};
 
-		ok_or_not_found(provider::remove_file(&task.to).await)?;
-		ok_or_not_found(provider::hard_link(&src, &task.to).await)?;
+		ok_or_not_found!(provider::remove_file(&task.to).await);
+		ok_or_not_found!(provider::hard_link(&src, &task.to).await);
 
 		Ok(self.ops.out(task.id, FileOutHardlinkDo::Succ))
 	}
@@ -243,7 +243,7 @@ impl File {
 			task.length = cha.len;
 			self.ops.out(id, FileOutDelete::New(cha.len));
 			self.queue(task, NORMAL);
-			self.ops.out(id, FileOutDelete::Init);
+			self.ops.out(id, FileOutDelete::Succ);
 			return Ok(());
 		}
 
@@ -266,7 +266,7 @@ impl File {
 			}
 		}
 
-		Ok(self.ops.out(task.id, FileOutDelete::Init))
+		Ok(self.ops.out(task.id, FileOutDelete::Succ))
 	}
 
 	pub(crate) async fn delete_do(&self, task: FileInDelete) -> Result<(), FileOutDeleteDo> {
@@ -289,8 +289,8 @@ impl File {
 	}
 
 	#[inline]
-	async fn cha<'a>(url: impl Into<Url<'a>>, follow: bool) -> io::Result<Cha> {
-		let url = url.into();
+	async fn cha(url: impl AsUrl, follow: bool) -> io::Result<Cha> {
+		let url = url.as_url();
 		let cha = provider::symlink_metadata(url).await?;
 		Ok(if follow { Cha::from_follow(url, cha).await } else { cha })
 	}

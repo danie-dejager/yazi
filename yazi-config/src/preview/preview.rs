@@ -3,9 +3,8 @@ use std::{borrow::Cow, path::PathBuf};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use yazi_codegen::DeserializeOver2;
-use yazi_fs::path::expand_url;
+use yazi_fs::{Xdg, path::expand_url};
 use yazi_shared::{SStr, timestamp_us, url::Url};
-use yazi_vfs::local::Xdg;
 
 use super::PreviewWrap;
 
@@ -57,7 +56,8 @@ impl Preview {
 			bail!("[preview].cache_dir must be a path within local filesystem.");
 		};
 
-		std::fs::create_dir_all(&self.cache_dir).context("Failed to create cache directory")?;
+		std::fs::create_dir_all(&self.cache_dir)
+			.context(format!("Failed to create cache directory: {}", self.cache_dir.display()))?;
 
 		Ok(self)
 	}

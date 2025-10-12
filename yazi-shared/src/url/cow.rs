@@ -3,9 +3,9 @@ use std::{borrow::Cow, path::{Path, PathBuf}};
 use anyhow::Result;
 use percent_encoding::percent_decode;
 
-use crate::{IntoOsStr, loc::{Loc, LocBuf}, scheme::{SchemeCow, SchemeRef}, url::{Components, Url, UrlBuf, Urn}};
+use crate::{IntoOsStr, loc::{Loc, LocBuf}, scheme::{SchemeCow, SchemeRef}, url::{AsUrl, Url, UrlBuf}};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum UrlCow<'a> {
 	Borrowed { loc: Loc<'a>, scheme: SchemeCow<'a> },
 	Owned { loc: LocBuf, scheme: SchemeCow<'a> },
@@ -25,12 +25,12 @@ impl<'a> From<&'a UrlBuf> for UrlCow<'a> {
 	}
 }
 
-impl From<UrlBuf> for UrlCow<'_> {
-	fn from(value: UrlBuf) -> Self { Self::Owned { loc: value.loc, scheme: value.scheme.into() } }
+impl<'a> From<&'a UrlCow<'a>> for UrlCow<'a> {
+	fn from(value: &'a UrlCow<'a>) -> Self { value.as_url().into() }
 }
 
-impl<'a> From<&'a UrlCow<'a>> for Url<'a> {
-	fn from(value: &'a UrlCow<'a>) -> Self { value.as_url() }
+impl From<UrlBuf> for UrlCow<'_> {
+	fn from(value: UrlBuf) -> Self { Self::Owned { loc: value.loc, scheme: value.scheme.into() } }
 }
 
 impl From<UrlCow<'_>> for UrlBuf {
@@ -114,14 +114,6 @@ impl<'a> UrlCow<'a> {
 	}
 
 	#[inline]
-	pub fn as_url(&self) -> Url<'_> {
-		match self {
-			UrlCow::Borrowed { loc, scheme } => Url { loc: *loc, scheme: scheme.as_ref() },
-			UrlCow::Owned { loc, scheme } => Url { loc: loc.as_loc(), scheme: scheme.as_ref() },
-		}
-	}
-
-	#[inline]
 	pub fn into_owned(self) -> UrlBuf {
 		match self {
 			UrlCow::Borrowed { loc, scheme } => UrlBuf { loc: loc.into(), scheme: scheme.into() },
@@ -138,10 +130,7 @@ impl<'a> UrlCow<'a> {
 	}
 
 	#[inline]
-	pub fn parent(&self) -> Option<Url<'_>> { self.as_url().parent() }
-
-	#[inline]
-	pub fn pair(&self) -> Option<(Url<'_>, &Urn)> { self.as_url().pair() }
+	pub fn to_owned(&self) -> UrlBuf { self.as_url().into() }
 
 	pub fn parse(bytes: &[u8]) -> Result<(SchemeCow<'_>, Cow<'_, Path>, Option<(usize, usize)>)> {
 		let mut skip = 0;
@@ -167,13 +156,4 @@ impl<'a> UrlCow<'a> {
 impl UrlCow<'_> {
 	#[inline]
 	pub fn is_regular(&self) -> bool { self.as_url().is_regular() }
-
-	#[inline]
-	pub fn is_absolute(&self) -> bool { self.as_url().is_absolute() }
-
-	#[inline]
-	pub fn components(&self) -> Components<'_> { Components::from(self) }
-
-	#[inline]
-	pub fn covariant(&self, other: &Self) -> bool { self.as_url().covariant(other) }
 }

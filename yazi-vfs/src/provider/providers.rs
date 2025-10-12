@@ -1,10 +1,8 @@
 use std::{io, path::{Path, PathBuf}, sync::Arc};
 
-use yazi_shared::{scheme::SchemeRef, url::{Url, UrlCow}};
-use yazi_vfs::config::{ProviderSftp, Vfs};
-
-use super::local::Local;
-use crate::{cha::Cha, provider::Provider};
+use yazi_config::vfs::{ProviderSftp, Vfs};
+use yazi_fs::{cha::Cha, provider::{Provider, local::Local}};
+use yazi_shared::{scheme::SchemeRef, url::{AsUrl, Url, UrlCow}};
 
 pub(super) struct Providers<'a>(Inner<'a>);
 
@@ -34,9 +32,9 @@ impl Provider for Providers<'_> {
 	type Gate = super::Gate;
 	type ReadDir = super::ReadDir;
 
-	async fn absolute<'a, U>(&self, url: U) -> io::Result<UrlCow<'a>>
+	async fn absolute<'a, U>(&self, url: &'a U) -> io::Result<UrlCow<'a>>
 	where
-		U: Into<Url<'a>>,
+		U: AsUrl,
 	{
 		match self.0 {
 			Inner::Regular | Inner::Search(_) => Local.absolute(url).await,

@@ -3,10 +3,10 @@ use std::io;
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
+use yazi_fs::Xdg;
 use yazi_macro::ok_or_not_found;
 
 use super::Provider;
-use crate::local::Xdg;
 
 #[derive(Deserialize, Serialize)]
 pub struct Vfs {
@@ -47,13 +47,15 @@ impl Vfs {
 		})))
 	}
 
-	fn reshape(self) -> io::Result<Self> {
-		for name in self.providers.keys() {
+	fn reshape(mut self) -> io::Result<Self> {
+		for (name, provider) in &mut self.providers {
 			if name.is_empty() || name.len() > 20 {
 				Err(io::Error::other(format!("VFS name `{name}` must be between 1 and 20 characters")))?;
 			} else if !name.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'z' | b'-')) {
 				Err(io::Error::other(format!("VFS name `{name}` must be in kebab-case")))?;
 			}
+
+			provider.reshape()?;
 		}
 
 		Ok(self)

@@ -1,11 +1,12 @@
 use anyhow::Result;
 use yazi_config::popup::{ConfirmCfg, InputCfg};
 use yazi_dds::Pubsub;
-use yazi_fs::{File, FilesOp, maybe_exists, ok_or_not_found, provider};
-use yazi_macro::{act, err, succ};
+use yazi_fs::{File, FilesOp};
+use yazi_macro::{act, err, ok_or_not_found, succ};
 use yazi_parser::mgr::RenameOpt;
 use yazi_proxy::{ConfirmProxy, InputProxy, MgrProxy};
-use yazi_shared::{Id, event::Data, url::UrlBuf};
+use yazi_shared::{Id, data::Data, url::{UrlBuf, UrlLike}};
+use yazi_vfs::{VfsFile, maybe_exists, provider};
 use yazi_watcher::WATCHER;
 
 use crate::{Actor, Ctx};
@@ -71,7 +72,7 @@ impl Rename {
 		if let Ok(u) = overwritten
 			&& let Some((parent, urn)) = u.pair()
 		{
-			ok_or_not_found(provider::rename(&u, &new).await)?;
+			ok_or_not_found!(provider::rename(&u, &new).await);
 			FilesOp::Deleting(parent.to_owned(), [urn.into()].into()).emit();
 		}
 

@@ -3,6 +3,7 @@ yazi_macro::mod_flat!(
 	close
 	copy
 	create
+	download
 	escape
 	filter
 	find
@@ -15,7 +16,6 @@ yazi_macro::mod_flat!(
 	link
 	open
 	open_do
-	open_with
 	paste
 	peek
 	quit

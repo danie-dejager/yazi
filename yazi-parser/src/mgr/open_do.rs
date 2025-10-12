@@ -1,16 +1,24 @@
+use anyhow::bail;
 use mlua::{ExternalError, FromLua, IntoLua, Lua, Value};
-use yazi_shared::{event::CmdCow, url::UrlBuf};
+use yazi_shared::{event::CmdCow, url::{UrlBuf, UrlCow}};
 
 #[derive(Debug, Default)]
 pub struct OpenDoOpt {
 	pub cwd:         UrlBuf,
-	pub hovered:     UrlBuf,
-	pub targets:     Vec<(UrlBuf, &'static str)>,
+	pub targets:     Vec<UrlCow<'static>>,
 	pub interactive: bool,
 }
 
-impl From<CmdCow> for OpenDoOpt {
-	fn from(mut c: CmdCow) -> Self { c.take_any("option").unwrap_or_default() }
+impl TryFrom<CmdCow> for OpenDoOpt {
+	type Error = anyhow::Error;
+
+	fn try_from(mut c: CmdCow) -> Result<Self, Self::Error> {
+		if let Some(opt) = c.take_any2("opt") {
+			opt
+		} else {
+			bail!("'opt' is required for OpenDoOpt");
+		}
+	}
 }
 
 impl FromLua for OpenDoOpt {

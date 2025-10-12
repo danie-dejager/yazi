@@ -15,6 +15,7 @@ pub enum Spark<'a> {
 	Close(yazi_parser::mgr::CloseOpt),
 	Copy(yazi_parser::mgr::CopyOpt),
 	Create(yazi_parser::mgr::CreateOpt),
+	Download(yazi_parser::mgr::DownloadOpt),
 	Enter(yazi_parser::VoidOpt),
 	Escape(yazi_parser::mgr::EscapeOpt),
 	EscapeFilter(yazi_parser::VoidOpt),
@@ -36,7 +37,6 @@ pub enum Spark<'a> {
 	Linemode(yazi_parser::mgr::LinemodeOpt),
 	Link(yazi_parser::mgr::LinkOpt),
 	Open(yazi_parser::mgr::OpenOpt),
-	OpenWith(yazi_parser::mgr::OpenWithOpt),
 	OpenDo(yazi_parser::mgr::OpenDoOpt),
 	Paste(yazi_parser::mgr::PasteOpt),
 	Peek(yazi_parser::mgr::PeekOpt),
@@ -107,7 +107,7 @@ pub enum Spark<'a> {
 	SpotCopy(yazi_parser::spot::CopyOpt),
 
 	// Tasks
-	TasksProcessExec(yazi_parser::tasks::ProcessExecOpt),
+	TasksProcessOpen(yazi_parser::tasks::ProcessOpenOpt),
 	TasksUpdateSucceed(yazi_parser::tasks::UpdateSucceedOpt),
 
 	// Which
@@ -137,6 +137,7 @@ impl<'a> IntoLua for Spark<'a> {
 			Self::Close(b) => b.into_lua(lua),
 			Self::Copy(b) => b.into_lua(lua),
 			Self::Create(b) => b.into_lua(lua),
+			Self::Download(b) => b.into_lua(lua),
 			Self::Enter(b) => b.into_lua(lua),
 			Self::Escape(b) => b.into_lua(lua),
 			Self::EscapeFilter(b) => b.into_lua(lua),
@@ -158,7 +159,6 @@ impl<'a> IntoLua for Spark<'a> {
 			Self::Linemode(b) => b.into_lua(lua),
 			Self::Link(b) => b.into_lua(lua),
 			Self::Open(b) => b.into_lua(lua),
-			Self::OpenWith(b) => b.into_lua(lua),
 			Self::OpenDo(b) => b.into_lua(lua),
 			Self::Paste(b) => b.into_lua(lua),
 			Self::Peek(b) => b.into_lua(lua),
@@ -229,7 +229,7 @@ impl<'a> IntoLua for Spark<'a> {
 			Self::SpotCopy(b) => b.into_lua(lua),
 
 			// Tasks
-			Self::TasksProcessExec(b) => b.into_lua(lua),
+			Self::TasksProcessOpen(b) => b.into_lua(lua),
 			Self::TasksUpdateSucceed(b) => b.into_lua(lua),
 
 			// Which
@@ -280,6 +280,7 @@ try_from_spark!(mgr::CdOpt, mgr:cd);
 try_from_spark!(mgr::CloseOpt, mgr:close);
 try_from_spark!(mgr::CopyOpt, mgr:copy);
 try_from_spark!(mgr::CreateOpt, mgr:create);
+try_from_spark!(mgr::DownloadOpt, mgr:download);
 try_from_spark!(mgr::EscapeOpt, mgr:escape);
 try_from_spark!(mgr::FilterOpt, mgr:filter, mgr:filter_do);
 try_from_spark!(mgr::FindArrowOpt, mgr:find_arrow);
@@ -292,7 +293,6 @@ try_from_spark!(mgr::LinemodeOpt, mgr:linemode);
 try_from_spark!(mgr::LinkOpt, mgr:link);
 try_from_spark!(mgr::OpenDoOpt, mgr:open_do);
 try_from_spark!(mgr::OpenOpt, mgr:open);
-try_from_spark!(mgr::OpenWithOpt, mgr:open_with);
 try_from_spark!(mgr::PasteOpt, mgr:paste);
 try_from_spark!(mgr::PeekOpt, mgr:peek);
 try_from_spark!(mgr::QuitOpt, mgr:quit);
@@ -321,7 +321,7 @@ try_from_spark!(notify::TickOpt, notify:tick);
 try_from_spark!(pick::CloseOpt, pick:close);
 try_from_spark!(pick::ShowOpt, pick:show);
 try_from_spark!(spot::CopyOpt, spot:copy);
-try_from_spark!(tasks::ProcessExecOpt, tasks:process_exec);
+try_from_spark!(tasks::ProcessOpenOpt, tasks:process_open);
 try_from_spark!(tasks::UpdateSucceedOpt, tasks:update_succeed);
 try_from_spark!(which::CallbackOpt, which:callback);
 try_from_spark!(which::ShowOpt, which:show);

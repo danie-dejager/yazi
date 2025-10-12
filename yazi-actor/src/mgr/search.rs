@@ -9,7 +9,7 @@ use yazi_macro::{act, succ};
 use yazi_parser::{VoidOpt, mgr::{SearchOpt, SearchOptVia}};
 use yazi_plugin::external;
 use yazi_proxy::{InputProxy, MgrProxy};
-use yazi_shared::event::Data;
+use yazi_shared::data::Data;
 
 use crate::{Actor, Ctx};
 
@@ -111,7 +111,7 @@ impl Actor for SearchStop {
 			succ!();
 		}
 
-		let rep = tab.history.remove_or(&tab.cwd().to_regular());
+		let rep = tab.history.remove_or(tab.cwd().to_regular());
 		drop(mem::replace(&mut tab.current, rep));
 
 		act!(mgr:hidden, cx)?;

@@ -1,4 +1,4 @@
-use std::{ffi::OsString, future::Future, sync::Arc, time::Duration};
+use std::{future::Future, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use futures::{FutureExt, future::BoxFuture};
@@ -6,10 +6,11 @@ use parking_lot::Mutex;
 use tokio::{select, sync::{mpsc::{self, UnboundedReceiver}, oneshot}, task::JoinHandle};
 use yazi_config::{YAZI, plugin::{Fetcher, Preloader}};
 use yazi_dds::Pump;
-use yazi_fs::{must_be_dir, path::unique_name, provider, remove_dir_clean};
-use yazi_parser::{app::PluginOpt, tasks::ProcessExecOpt};
+use yazi_fs::FsUrl;
+use yazi_parser::{app::PluginOpt, tasks::ProcessOpenOpt};
 use yazi_proxy::TasksProxy;
-use yazi_shared::{Id, Throttle, url::UrlBuf};
+use yazi_shared::{Id, Throttle, url::{UrlBuf, UrlLike}};
+use yazi_vfs::{must_be_dir, provider, unique_name};
 
 use super::{Ongoing, TaskOp};
 use crate::{HIGH, LOW, NORMAL, TaskIn, TaskOps, TaskOut, file::{File, FileInDelete, FileInHardlink, FileInLink, FileInPaste, FileInTrash, FileOutDelete, FileOutHardlink, FileOutPaste, FileProgDelete, FileProgHardlink, FileProgLink, FileProgPaste, FileProgTrash}, plugin::{Plugin, PluginInEntry, PluginProgEntry}, prework::{Prework, PreworkInFetch, PreworkInLoad, PreworkInSize, PreworkProgFetch, PreworkProgLoad, PreworkProgSize}, process::{Process, ProcessInBg, ProcessInBlock, ProcessInOrphan, ProcessOutBg, ProcessOutBlock, ProcessOutOrphan, ProcessProgBg, ProcessProgBlock, ProcessProgOrphan}};
@@ -80,7 +81,7 @@ impl Scheduler {
 		let id = ongoing.add::<FileProgPaste>(format!("Cut {} to {}", from.display(), to.display()));
 
 		if to.starts_with(&from) && !to.covariant(&from) {
-			return self.ops.out(id, FileOutPaste::Deform("Cannot cut directory into itself".to_owned()));
+			return self.ops.out(id, FileOutPaste::Fail("Cannot cut directory into itself".to_owned()));
 		}
 
 		ongoing.hooks.add_async(id, {
@@ -89,7 +90,7 @@ impl Scheduler {
 
 			move |canceled| async move {
 				if !canceled {
-					remove_dir_clean(&from).await;
+					provider::remove_dir_clean(&from).await.ok();
 					Pump::push_move(from, to);
 				}
 				ops.out(id, FileOutPaste::Clean);
@@ -113,9 +114,7 @@ impl Scheduler {
 		));
 
 		if to.starts_with(&from) && !to.covariant(&from) {
-			return self
-				.ops
-				.out(id, FileOutPaste::Deform("Cannot copy directory into itself".to_owned()));
+			return self.ops.out(id, FileOutPaste::Fail("Cannot copy directory into itself".to_owned()));
 		}
 
 		let file = self.file.clone();
@@ -153,7 +152,7 @@ impl Scheduler {
 		if to.starts_with(&from) && !to.covariant(&from) {
 			return self
 				.ops
-				.out(id, FileOutHardlink::Deform("Cannot hardlink directory into itself".to_owned()));
+				.out(id, FileOutHardlink::Fail("Cannot hardlink directory into itself".to_owned()));
 		}
 
 		let file = self.file.clone();
@@ -209,6 +208,24 @@ impl Scheduler {
 		self.send_micro(id, LOW, async move { file.trash(FileInTrash { id, target }) })
 	}
 
+	pub fn file_download(&self, from: UrlBuf, done: Option<oneshot::Sender<bool>>) {
+		let mut ongoing = self.ongoing.lock();
+		let id = ongoing.add::<FileProgPaste>(format!("Download {}", from.display()));
+
+		if let Some(tx) = done {
+			ongoing.hooks.add_sync(id, move |canceled| _ = tx.send(canceled));
+		}
+
+		let Some(to) = from.cache().map(UrlBuf::from) else {
+			return self.ops.out(id, FileOutPaste::Fail("Cannot download non-remote file".to_owned()));
+		};
+
+		let file = self.file.clone();
+		self.send_micro(id, LOW, async move {
+			file.paste(FileInPaste { id, from, to, cha: None, cut: false, follow: false, retry: 0 }).await
+		});
+	}
+
 	pub fn plugin_micro(&self, opt: PluginOpt) {
 		let id = self.ongoing.lock().add::<PluginProgEntry>(format!("Run micro plugin `{}`", opt.id));
 
@@ -245,6 +262,22 @@ impl Scheduler {
 		});
 	}
 
+	pub async fn fetch_mimetype(&self, targets: Vec<yazi_fs::File>) -> bool {
+		let mut wg = vec![];
+		for (fetcher, targets) in YAZI.plugin.mime_fetchers(targets) {
+			let (tx, rx) = oneshot::channel();
+			self.fetch_paged(fetcher, targets, Some(tx));
+			wg.push(rx);
+		}
+
+		for rx in wg {
+			if rx.await != Ok(true) {
+				return false;
+			}
+		}
+		true
+	}
+
 	pub fn preload_paged(&self, preloader: &'static Preloader, target: &yazi_fs::File) {
 		let id =
 			self.ongoing.lock().add::<PreworkProgLoad>(format!("Run preloader `{}`", preloader.run.name));
@@ -273,20 +306,20 @@ impl Scheduler {
 		}
 	}
 
-	pub fn process_open(&self, ProcessExecOpt { cwd, opener, args, done }: ProcessExecOpt) {
+	pub fn process_open(&self, opt: ProcessOpenOpt) {
 		let name = {
-			let args = args.iter().map(|a| a.to_string_lossy()).collect::<Vec<_>>().join(" ");
+			let args = opt.args.iter().map(|a| a.display().to_string()).collect::<Vec<_>>().join(" ");
 			if args.is_empty() {
-				format!("Run {:?}", opener.run)
+				format!("Run {:?}", opt.cmd)
 			} else {
-				format!("Run {:?} with `{args}`", opener.run)
+				format!("Run {:?} with `{args}`", opt.cmd)
 			}
 		};
 
 		let mut ongoing = self.ongoing.lock();
-		let (id, clean): (_, TaskOut) = if opener.block {
+		let (id, clean): (_, TaskOut) = if opt.block {
 			(ongoing.add::<ProcessProgBlock>(name), ProcessOutBlock::Clean.into())
-		} else if opener.orphan {
+		} else if opt.orphan {
 			(ongoing.add::<ProcessProgOrphan>(name), ProcessOutOrphan::Clean.into())
 		} else {
 			(ongoing.add::<ProcessProgBg>(name), ProcessOutBg::Clean.into())
@@ -299,21 +332,22 @@ impl Scheduler {
 				cancel_tx.send(()).await.ok();
 				cancel_tx.closed().await;
 			}
-			if let Some(tx) = done {
+			if let Some(tx) = opt.done {
 				tx.send(()).ok();
 			}
 			ops.out(id, clean);
 		});
 
-		let cmd = OsString::from(&opener.run);
 		let process = self.process.clone();
 		self.send_micro::<_, TaskOut>(id, NORMAL, async move {
-			if opener.block {
-				process.block(ProcessInBlock { id, cwd, cmd, args }).await?;
-			} else if opener.orphan {
-				process.orphan(ProcessInOrphan { id, cwd, cmd, args }).await?;
+			if opt.block {
+				process.block(ProcessInBlock { id, cwd: opt.cwd, cmd: opt.cmd, args: opt.args }).await?;
+			} else if opt.orphan {
+				process.orphan(ProcessInOrphan { id, cwd: opt.cwd, cmd: opt.cmd, args: opt.args }).await?;
 			} else {
-				process.bg(ProcessInBg { id, cwd, cmd, args, cancel: cancel_rx }).await?;
+				process
+					.bg(ProcessInBg { id, cwd: opt.cwd, cmd: opt.cmd, args: opt.args, cancel: cancel_rx })
+					.await?;
 			}
 			Ok(())
 		});
