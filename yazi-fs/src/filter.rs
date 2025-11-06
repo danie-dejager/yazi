@@ -2,7 +2,7 @@ use std::{ffi::OsStr, fmt::Display, ops::Range};
 
 use anyhow::Result;
 use regex::bytes::{Regex, RegexBuilder};
-use yazi_shared::event::Cmd;
+use yazi_shared::{event::Cmd, path::{AsPath, PathLike}};
 
 pub struct Filter {
 	raw:   String,
@@ -23,8 +23,12 @@ impl Filter {
 	}
 
 	#[inline]
-	pub fn matches(&self, name: impl AsRef<OsStr>) -> bool {
-		self.regex.is_match(name.as_ref().as_encoded_bytes())
+	#[allow(private_bounds)]
+	pub fn matches<T>(&self, name: T) -> bool
+	where
+		T: AsPath,
+	{
+		self.regex.is_match(name.as_path().encoded_bytes())
 	}
 
 	#[inline]

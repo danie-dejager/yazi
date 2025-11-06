@@ -22,11 +22,11 @@ impl Actor for Hover {
 		}
 
 		// Repos CWD
-		tab.current.repos(opt.urn.as_deref());
+		tab.current.repos(opt.urn.as_ref().map(Into::into));
 
 		// Turn on tracing
 		if let (Some(h), Some(u)) = (tab.hovered(), opt.urn)
-			&& *h.urn() == u
+			&& h.urn() == u
 		{
 			// `hover(Some)` occurs after user actions, such as create, rename, reveal, etc.
 			// At this point, it's intuitive to track the location of the file regardless.

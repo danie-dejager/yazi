@@ -1,6 +1,6 @@
 use std::{borrow::Cow, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 
-use yazi_shared::{loc::LocBuf, url::{AsUrl, Url, UrlBuf, UrlCow}};
+use yazi_shared::{loc::LocBuf, path::PathLike, url::{AsUrl, Url, UrlBuf, UrlCow}};
 
 use crate::{CWD, path::clean_url};
 
@@ -19,10 +19,10 @@ fn expand_url_impl<'a>(url: Url<'a>) -> UrlCow<'a> {
 	let rest_diff = n_rest.components().count() as isize - o_rest.components().count() as isize;
 	let urn_diff = n_urn.components().count() as isize - o_urn.components().count() as isize;
 
-	let uri_count = url.uri().count() as isize;
-	let urn_count = url.urn().count() as isize;
+	let uri_count = url.uri().components().count() as isize;
+	let urn_count = url.urn().components().count() as isize;
 
-	let loc = LocBuf::with(
+	let loc = LocBuf::<PathBuf>::with(
 		PathBuf::from_iter([n_base, n_rest, n_urn]),
 		(uri_count + rest_diff + urn_diff) as usize,
 		(urn_count + urn_diff) as usize,
@@ -69,7 +69,7 @@ pub fn absolute_url<'a>(url: Url<'a>) -> UrlCow<'a> {
 
 	let b = url.loc.as_os_str().as_encoded_bytes();
 	if cfg!(windows) && b.len() == 2 && b[1] == b':' && b[0].is_ascii_alphabetic() {
-		let loc = LocBuf::with(
+		let loc = LocBuf::<PathBuf>::with(
 			format!(r"{}:\", b[0].to_ascii_uppercase() as char).into(),
 			if url.has_base() { 0 } else { 2 },
 			if url.has_trail() { 0 } else { 2 },
@@ -81,17 +81,21 @@ pub fn absolute_url<'a>(url: Url<'a>) -> UrlCow<'a> {
 		&& home.is_absolute()
 	{
 		let add = home.components().count() - 1; // Home root ("~") has offset by the absolute root ("/")
-		let loc = LocBuf::with(
+		let loc = LocBuf::<PathBuf>::with(
 			home.join(rest),
-			url.uri().count() + if url.has_base() { 0 } else { add },
-			url.urn().count() + if url.has_trail() { 0 } else { add },
+			url.uri().components().count() + if url.has_base() { 0 } else { add },
+			url.urn().components().count() + if url.has_trail() { 0 } else { add },
 		)
 		.expect("Failed to create Loc from home directory");
 		UrlBuf { loc, scheme: url.scheme.into() }.into()
 	} else if !url.is_absolute() {
 		let cwd = CWD.path();
-		let loc = LocBuf::with(cwd.join(url.loc), url.uri().count(), url.urn().count())
-			.expect("Failed to create Loc from relative path");
+		let loc = LocBuf::<PathBuf>::with(
+			cwd.join(url.loc),
+			url.uri().components().count(),
+			url.urn().components().count(),
+		)
+		.expect("Failed to create Loc from relative path");
 		UrlBuf { loc, scheme: url.scheme.into() }.into()
 	} else {
 		url.into()

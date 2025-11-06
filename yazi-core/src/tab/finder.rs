@@ -1,13 +1,13 @@
 use anyhow::Result;
 use hashbrown::HashMap;
 use yazi_fs::{Files, Filter, FilterCase};
-use yazi_shared::url::{UrlBuf, Urn, UrnBuf};
+use yazi_shared::{path::{AsPathDyn, PathBufDyn, PathLike}, url::UrlBuf};
 
 use crate::tab::Folder;
 
 pub struct Finder {
 	pub filter:  Filter,
-	pub matched: HashMap<UrnBuf, u8>,
+	pub matched: HashMap<PathBufDyn, u8>,
 	lock:        FinderLock,
 }
 
@@ -62,7 +62,7 @@ impl Finder {
 				continue;
 			}
 
-			self.matched.insert(file.urn().to_owned(), i);
+			self.matched.insert(file.urn().owned(), i);
 			if self.matched.len() > 99 {
 				break;
 			}
@@ -76,8 +76,11 @@ impl Finder {
 }
 
 impl Finder {
-	pub fn matched_idx(&self, folder: &Folder, urn: &Urn) -> Option<u8> {
-		if self.lock == *folder { self.matched.get(urn).copied() } else { None }
+	pub fn matched_idx<T>(&self, folder: &Folder, urn: T) -> Option<u8>
+	where
+		T: AsPathDyn,
+	{
+		if self.lock == *folder { self.matched.get(&urn.as_path_dyn()).copied() } else { None }
 	}
 }
 

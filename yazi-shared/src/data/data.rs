@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{Id, SStr, data::DataKey, url::{UrlBuf, UrlCow, UrnBuf}};
+use crate::{Id, SStr, data::DataKey, path::PathBufDyn, url::{UrlBuf, UrlCow}};
 
 // --- Data
 #[derive(Debug, Deserialize, Serialize)]
@@ -21,7 +21,7 @@ pub enum Data {
 	#[serde(skip_deserializing)]
 	Url(UrlBuf),
 	#[serde(skip_deserializing)]
-	Urn(UrnBuf),
+	Path(PathBufDyn),
 	#[serde(skip)]
 	Bytes(Vec<u8>),
 	#[serde(skip)]

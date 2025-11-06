@@ -1,100 +1,90 @@
-use std::{ffi::OsStr, hash::{Hash, Hasher}, ops::Deref, path::Path};
+use std::{hash::{Hash, Hasher}, marker::PhantomData, ops::Deref, path::Path};
 
 use anyhow::{Result, bail};
 
-use crate::{loc::LocBuf, url::{Uri, Urn}};
+use crate::{loc::LocBuf, path::{AsPathView, PathBufLike, PathInner, PathLike}};
 
 #[derive(Clone, Copy, Debug)]
-pub struct Loc<'a> {
-	pub(super) inner: &'a Path,
-	pub(super) uri:   usize,
-	pub(super) urn:   usize,
+pub struct Loc<'p, P = &'p Path> {
+	pub(super) inner:    P,
+	pub(super) uri:      usize,
+	pub(super) urn:      usize,
+	pub(super) _phantom: PhantomData<&'p ()>,
 }
 
-impl Default for Loc<'_> {
-	fn default() -> Self { Self { inner: Path::new(""), uri: 0, urn: 0 } }
+impl<'p, P> Default for Loc<'p, P>
+where
+	P: PathLike<'p>,
+{
+	fn default() -> Self { Self { inner: P::default(), uri: 0, urn: 0, _phantom: PhantomData } }
 }
 
-impl Deref for Loc<'_> {
-	type Target = Path;
+impl<'p, P> Deref for Loc<'p, P>
+where
+	P: PathLike<'p>,
+{
+	type Target = P;
 
-	fn deref(&self) -> &Self::Target { self.inner }
+	fn deref(&self) -> &Self::Target { &self.inner }
 }
 
-impl AsRef<Path> for Loc<'_> {
-	fn as_ref(&self) -> &Path { self.inner }
-}
-
-impl<'a> From<&'a LocBuf> for Loc<'a> {
-	fn from(value: &'a LocBuf) -> Self {
-		Self { inner: &value.inner, uri: value.uri, urn: value.urn }
-	}
+// FIXME: remove
+impl AsRef<std::path::Path> for Loc<'_, &std::path::Path> {
+	fn as_ref(&self) -> &std::path::Path { self.inner }
 }
 
 // --- Hash
-impl Hash for Loc<'_> {
+impl<'p, P> Hash for Loc<'p, P>
+where
+	P: PathLike<'p> + Hash,
+{
 	fn hash<H: Hasher>(&self, state: &mut H) { self.inner.hash(state) }
 }
 
-impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for Loc<'a> {
-	fn from(value: &'a T) -> Self {
-		let path = Path::new(value.as_ref());
-		let Some(name) = path.file_name() else {
-			let uri = path.as_os_str().len();
-			return Self { inner: path, uri, urn: 0 };
-		};
-
-		let name_len = name.len();
-		let prefix_len = unsafe {
-			name
-				.as_encoded_bytes()
-				.as_ptr()
-				.offset_from_unsigned(path.as_os_str().as_encoded_bytes().as_ptr())
-		};
-
-		let bytes = path.as_os_str().as_encoded_bytes();
-		Self {
-			inner: Path::new(unsafe {
-				OsStr::from_encoded_bytes_unchecked(&bytes[..prefix_len + name_len])
-			}),
-			uri:   name_len,
-			urn:   name_len,
-		}
-	}
-}
-
-impl From<Loc<'_>> for LocBuf {
-	fn from(value: Loc<'_>) -> Self {
-		Self { inner: value.inner.to_owned(), uri: value.uri, urn: value.urn }
+impl<'p, P> From<Loc<'p, P>> for LocBuf<<P as PathLike<'p>>::Owned>
+where
+	P: PathLike<'p>,
+	<P as PathLike<'p>>::Owned: PathBufLike,
+{
+	fn from(value: Loc<'p, P>) -> Self {
+		Self { inner: value.inner.owned(), uri: value.uri, urn: value.urn }
 	}
 }
 
 // --- Eq
-impl PartialEq for Loc<'_> {
+impl<'p, P> PartialEq for Loc<'p, P>
+where
+	P: PathLike<'p> + PartialEq,
+{
 	fn eq(&self, other: &Self) -> bool { self.inner == other.inner }
 }
 
-impl Eq for Loc<'_> {}
+impl<'p, P> Eq for Loc<'p, P> where P: PathLike<'p> + Eq {}
 
-impl<'a> Loc<'a> {
-	pub fn new<T>(path: &'a T, base: &Path, trail: &Path) -> Self
+impl<'p, P> Loc<'p, P>
+where
+	P: PathLike<'p>,
+{
+	pub fn new<'a, T, U>(path: T, base: U, trail: U) -> Self
 	where
-		T: AsRef<Path> + ?Sized,
+		T: AsPathView<'p, P>,
+		U: AsPathView<'a, P::View<'a>>,
 	{
-		let mut loc = Self::from(path.as_ref());
-		loc.uri =
-			loc.inner.strip_prefix(base).expect("Loc must start with the given base").as_os_str().len();
-		loc.urn =
-			loc.inner.strip_prefix(trail).expect("Loc must start with the given trail").as_os_str().len();
+		let mut loc = Self::bare(path);
+		loc.uri = loc.inner.strip_prefix(base).expect("Loc must start with the given base").len();
+		loc.urn = loc.inner.strip_prefix(trail).expect("Loc must start with the given trail").len();
 		loc
 	}
 
-	pub fn with(path: &'a Path, uri: usize, urn: usize) -> Result<Self> {
+	pub fn with<T>(path: T, uri: usize, urn: usize) -> Result<Self>
+	where
+		T: AsPathView<'p, P>,
+	{
 		if urn > uri {
 			bail!("URN cannot be longer than URI");
 		}
 
-		let mut loc = Self::from(path);
+		let mut loc = Self::bare(path);
 		if uri == 0 {
 			(loc.uri, loc.urn) = (0, 0);
 			return Ok(loc);
@@ -108,26 +98,55 @@ impl<'a> Loc<'a> {
 				bail!("URI exceeds the entire URL");
 			}
 			if i == urn {
-				loc.urn = loc.strip_prefix(it.clone()).unwrap().as_os_str().len();
+				loc.urn = loc.strip_prefix(it.clone()).unwrap().len();
 			}
 			if i == uri {
-				loc.uri = loc.strip_prefix(it).unwrap().as_os_str().len();
+				loc.uri = loc.strip_prefix(it).unwrap().len();
 				break;
 			}
 		}
 		Ok(loc)
 	}
 
-	pub fn zeroed<T: AsRef<Path> + ?Sized>(path: &'a T) -> Self {
-		let mut loc = Self::from(path.as_ref());
+	pub fn bare<T>(path: T) -> Self
+	where
+		T: AsPathView<'p, P>,
+	{
+		let path = path.as_path_view();
+		let Some(name) = path.file_name() else {
+			let uri = path.len();
+			return Self { inner: path, uri, urn: 0, _phantom: PhantomData };
+		};
+
+		let name_len = name.len();
+		let prefix_len =
+			unsafe { name.encoded_bytes().as_ptr().offset_from_unsigned(path.encoded_bytes().as_ptr()) };
+
+		let bytes = path.encoded_bytes();
+		Self {
+			inner:    unsafe { P::from_encoded_bytes(&bytes[..prefix_len + name_len]) },
+			uri:      name_len,
+			urn:      name_len,
+			_phantom: PhantomData,
+		}
+	}
+
+	pub fn zeroed<T>(path: T) -> Self
+	where
+		T: AsPathView<'p, P>,
+	{
+		let mut loc = Self::bare(path);
 		(loc.uri, loc.urn) = (0, 0);
 		loc
 	}
 
-	pub fn floated<T: AsRef<Path> + ?Sized>(path: &'a T, base: &Path) -> Self {
-		let mut loc = Self::from(path.as_ref());
-		loc.uri =
-			loc.inner.strip_prefix(base).expect("Loc must start with the given base").as_os_str().len();
+	pub fn floated<'a, T, U>(path: T, base: U) -> Self
+	where
+		T: AsPathView<'p, P>,
+		U: AsPathView<'a, P::View<'a>>,
+	{
+		let mut loc = Self::bare(path);
+		loc.uri = loc.inner.strip_prefix(base).expect("Loc must start with the given base").len();
 		loc
 	}
 
@@ -135,65 +154,57 @@ impl<'a> Loc<'a> {
 	pub fn as_loc(self) -> Self { self }
 
 	#[inline]
-	pub fn as_path(self) -> &'a Path { self.inner }
+	pub fn as_path(self) -> P { self.inner }
 
 	#[inline]
-	pub fn uri(self) -> &'a Uri {
-		Uri::new(unsafe {
-			OsStr::from_encoded_bytes_unchecked(
-				self.bytes().get_unchecked(self.bytes().len() - self.uri..),
-			)
-		})
+	pub fn uri(self) -> P {
+		unsafe {
+			P::from_encoded_bytes(self.inner.encoded_bytes().get_unchecked(self.inner.len() - self.uri..))
+		}
 	}
 
 	#[inline]
-	pub fn urn(self) -> &'a Urn {
-		Urn::new(unsafe {
-			OsStr::from_encoded_bytes_unchecked(
-				self.bytes().get_unchecked(self.bytes().len() - self.urn..),
-			)
-		})
+	pub fn urn(self) -> P {
+		unsafe {
+			P::from_encoded_bytes(self.inner.encoded_bytes().get_unchecked(self.inner.len() - self.urn..))
+		}
 	}
 
 	#[inline]
-	pub fn base(self) -> &'a Urn {
-		Urn::new(unsafe {
-			OsStr::from_encoded_bytes_unchecked(
-				self.bytes().get_unchecked(..self.bytes().len() - self.uri),
-			)
-		})
+	pub fn base(self) -> P {
+		unsafe {
+			P::from_encoded_bytes(self.inner.encoded_bytes().get_unchecked(..self.inner.len() - self.uri))
+		}
 	}
 
 	#[inline]
-	pub fn has_base(self) -> bool { self.bytes().len() != self.uri }
+	pub fn has_base(self) -> bool { self.inner.len() != self.uri }
 
 	#[inline]
-	pub fn trail(self) -> &'a Urn {
-		Urn::new(unsafe {
-			OsStr::from_encoded_bytes_unchecked(
-				self.bytes().get_unchecked(..self.bytes().len() - self.urn),
-			)
-		})
+	pub fn trail(self) -> P {
+		unsafe {
+			P::from_encoded_bytes(self.inner.encoded_bytes().get_unchecked(..self.inner.len() - self.urn))
+		}
 	}
 
 	#[inline]
-	pub fn has_trail(self) -> bool { self.bytes().len() != self.urn }
+	pub fn has_trail(self) -> bool { self.inner.len() != self.urn }
 
 	#[inline]
-	pub fn name(self) -> Option<&'a OsStr> { self.inner.file_name() }
+	pub fn name(self) -> Option<P::Inner> { self.inner.file_name() }
 
 	#[inline]
-	pub fn stem(self) -> Option<&'a OsStr> { self.inner.file_stem() }
+	pub fn stem(self) -> Option<P::Inner> { self.inner.file_stem() }
 
 	#[inline]
-	pub fn ext(self) -> Option<&'a OsStr> { self.inner.extension() }
+	pub fn ext(self) -> Option<P::Inner> { self.inner.extension() }
 
 	#[inline]
-	pub fn parent(self) -> Option<&'a Path> { self.inner.parent() }
+	pub fn parent(self) -> Option<P> { self.inner.parent() }
 
 	#[inline]
-	pub fn triple(self) -> (&'a Path, &'a Path, &'a Path) {
-		let len = self.bytes().len();
+	pub fn triple(self) -> (P, P, P) {
+		let len = self.inner.len();
 
 		let base = ..len - self.uri;
 		let rest = len - self.uri..len - self.urn;
@@ -201,18 +212,18 @@ impl<'a> Loc<'a> {
 
 		unsafe {
 			(
-				Path::new(OsStr::from_encoded_bytes_unchecked(self.bytes().get_unchecked(base))),
-				Path::new(OsStr::from_encoded_bytes_unchecked(self.bytes().get_unchecked(rest))),
-				Path::new(OsStr::from_encoded_bytes_unchecked(self.bytes().get_unchecked(urn))),
+				P::from_encoded_bytes(self.inner.encoded_bytes().get_unchecked(base)),
+				P::from_encoded_bytes(self.inner.encoded_bytes().get_unchecked(rest)),
+				P::from_encoded_bytes(self.inner.encoded_bytes().get_unchecked(urn)),
 			)
 		}
 	}
 
 	#[inline]
-	pub fn strip_prefix(self, base: impl AsRef<Path>) -> Option<&'a Path> {
-		self.inner.strip_prefix(base).ok()
+	pub fn strip_prefix<'a, T>(self, base: T) -> Option<P>
+	where
+		T: AsPathView<'a, P::View<'a>>,
+	{
+		self.inner.strip_prefix(base)
 	}
-
-	#[inline]
-	pub fn bytes(self) -> &'a [u8] { self.inner.as_os_str().as_encoded_bytes() }
 }
