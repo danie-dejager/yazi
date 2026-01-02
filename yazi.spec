@@ -2,7 +2,7 @@
 %define version 25.12.29
 %define release 1%{?dist}
 
-Summary:  Ping, but with a graph
+Summary:  Blazing fast terminal file manager written in Rust, based on async I/O
 Name:     %{name}
 Version:  %{version}
 Release:  %{release}
@@ -19,7 +19,8 @@ BuildRequires: gzip
 BuildRequires: upx
 
 %description
-Ping, but with a graph.
+Yazi (means "duck") is a terminal file manager written in Rust, based on non-blocking async I/O. 
+It aims to provide an efficient, user-friendly, and customizable file management experience.
 
 %prep
 %setup -q -n yazi-%{version}
