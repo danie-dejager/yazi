@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+## [v26.1.4]
+
 ### Added
 
 - Support VFS for preset previewers that rely on external commands ([#3477])
@@ -20,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Fixed
 
 - `ya pkg` fails to write `package.toml` when the config directory does not exist ([#3482])
+- A race condition generating unique filenames for concurrent file operations ([#3494])
 
 ## [v25.12.29]
 
@@ -985,6 +988,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [v25.5.28]: https://github.com/sxyazi/yazi/compare/v25.4.8...v25.5.28
 [v25.5.31]: https://github.com/sxyazi/yazi/compare/v25.5.28...v25.5.31
 [v25.12.29]: https://github.com/sxyazi/yazi/compare/v25.5.31...v25.12.29
+[v26.1.4]: https://github.com/sxyazi/yazi/compare/v25.12.29...v26.1.4
 [#4]: https://github.com/sxyazi/yazi/pull/4
 [#5]: https://github.com/sxyazi/yazi/pull/5
 [#6]: https://github.com/sxyazi/yazi/pull/6
@@ -1578,3 +1582,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3467]: https://github.com/sxyazi/yazi/pull/3467
 [#3477]: https://github.com/sxyazi/yazi/pull/3477
 [#3482]: https://github.com/sxyazi/yazi/pull/3482
+[#3494]: https://github.com/sxyazi/yazi/pull/3494
