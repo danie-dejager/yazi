@@ -9,12 +9,8 @@ Source0:        https://github.com/sxyazi/yazi/archive/refs/tags/v%{version}.tar
 
 %define debug_package %{nil}
 
-# --- Amazon Linux 2023 specific fixes ---
-# RHEL 9/10 do NOT need these and must not be affected
 %if 0%{?amzn}
-%global _package_note_file %{nil}
-%global _package_note_flags %{nil}
-%global rustflags %{nil}
+BuildRequires: rust-rpm-macros
 %endif
 
 BuildRequires:  gcc
@@ -33,13 +29,7 @@ terminal file management experience.
 %autosetup -n yazi-%{version}
 
 %build
-# AL2023 may inject broken RUSTFLAGS; harmless on RHEL
-unset RUSTFLAGS || true
-
-# Explicit flags, safe on all platforms
 export RUSTFLAGS="-Copt-level=3 -Cdebuginfo=2 --cap-lints=warn"
-
-# Networked build (same behaviour as your RHEL spec)
 cargo build --release --locked
 
 %install
