@@ -36,8 +36,7 @@ export RUSTFLAGS="-Copt-level=3 -Cdebuginfo=2 --cap-lints=warn"
 
 cargo build \
     --release \
-    --locked \
-    --offline
+    --locked
 
 %install
 install -Dpm0755 target/release/yazi %{buildroot}%{_bindir}/yazi
