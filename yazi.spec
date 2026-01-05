@@ -31,7 +31,10 @@ terminal file management experience.
 %autosetup -n yazi-%{version}
 
 %build
-# Explicit, minimal, portable Rust flags
+# Completely neutralise RPM Rust macro pollution
+unset RUSTFLAGS
+
+# Define clean, explicit flags
 export RUSTFLAGS="-Copt-level=3 -Cdebuginfo=2 --cap-lints=warn"
 
 cargo build \
