@@ -1,5 +1,5 @@
 %define name yazi
-%define version 25.12.29
+%define version 26.1.4
 %define release 1%{?dist}
 
 Summary:  Blazing fast terminal file manager written in Rust, based on async I/O
