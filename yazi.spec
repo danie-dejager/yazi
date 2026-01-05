@@ -1,50 +1,50 @@
-%define name yazi
-%define version 26.1.4
-%define release 1%{?dist}
+Name:           yazi
+Version:        26.1.4
+Release:        1%{?dist}
+Summary:        Blazing fast terminal file manager written in Rust, based on async I/O
 
-Summary:  Blazing fast terminal file manager written in Rust, based on async I/O
-Name:     %{name}
-Version:  %{version}
-Release:  %{release}
-License:  MIT License
-URL:      https://github.com/sxyazi/yazi
-Source0:  https://github.com/sxyazi/yazi/archive/refs/tags/v%{version}.tar.gz
+License:        MIT
+URL:            https://github.com/sxyazi/yazi
+Source0:        https://github.com/sxyazi/yazi/archive/refs/tags/v%{version}.tar.gz
 
+ExclusiveArch:  %{rust_arches}
+
+# --- Disable problematic RPM/Rust macros (AL2023 safe) ---
 %define debug_package %{nil}
-%global rustflags %{nil}
-
 %global _package_note_file %{nil}
 %global _package_note_flags %{nil}
+%global rustflags %{nil}
 
-BuildRequires: curl
-BuildRequires: gcc
-BuildRequires: make
-BuildRequires: gzip
-BuildRequires: upx
+BuildRequires:  gcc
+BuildRequires:  make
+BuildRequires:  cargo
+BuildRequires:  rust
+BuildRequires:  pkgconfig
+BuildRequires:  gzip
 
 %description
-Yazi (means "duck") is a terminal file manager written in Rust, based on non-blocking async I/O. 
-It aims to provide an efficient, user-friendly, and customizable file management experience.
+Yazi (means "duck") is a terminal file manager written in Rust, based on
+non-blocking async I/O. It provides a fast, user-friendly, and customizable
+terminal file management experience.
 
 %prep
-%setup -q -n yazi-%{version}
+%autosetup -n yazi-%{version}
 
 %build
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-export PATH="$PATH:$HOME/.cargo/bin"
-export RUSTFLAGS="-Copt-level=3 -Cdebuginfo=2 -Ccodegen-units=1 -Cstrip=none --cap-lints=warn"
-cargo build --release --locked
-strip --strip-all target/release/%{name}
-mkdir -p %{buildroot}/%{_bindir}
+# Explicit, minimal, portable Rust flags
+export RUSTFLAGS="-Copt-level=3 -Cdebuginfo=2 --cap-lints=warn"
+
+cargo build \
+    --release \
+    --locked \
+    --offline
 
 %install
-mkdir -p %{buildroot}/%{_bindir}/
-
-install -m 755 target/release/yazi %{buildroot}/%{_bindir}/
-install -m 755 target/release/ya %{buildroot}/%{_bindir}/
+install -Dpm0755 target/release/yazi %{buildroot}%{_bindir}/yazi
+install -Dpm0755 target/release/ya   %{buildroot}%{_bindir}/ya
 
 %files
 %license LICENSE
 %doc README.md
-%{_bindir}/ya
 %{_bindir}/yazi
+%{_bindir}/ya
