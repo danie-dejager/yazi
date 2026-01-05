@@ -11,6 +11,7 @@ URL:      https://github.com/sxyazi/yazi
 Source0:  https://github.com/sxyazi/yazi/archive/refs/tags/v%{version}.tar.gz
 
 %define debug_package %{nil}
+%global rustflags %{nil}
 
 %global _package_note_file %{nil}
 %global _package_note_flags %{nil}
@@ -31,6 +32,7 @@ It aims to provide an efficient, user-friendly, and customizable file management
 %build
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 export PATH="$PATH:$HOME/.cargo/bin"
+export RUSTFLAGS="-Copt-level=3 -Cdebuginfo=2 -Ccodegen-units=1 -Cstrip=none --cap-lints=warn"
 cargo build --release --locked
 strip --strip-all target/release/%{name}
 mkdir -p %{buildroot}/%{_bindir}
