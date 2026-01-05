@@ -10,7 +10,7 @@ Source0:        https://github.com/sxyazi/yazi/archive/refs/tags/v%{version}.tar
 %define debug_package %{nil}
 
 %if 0%{?amzn}
-BuildRequires: rust-rpm-macros
+%global __cargo_skip_rpm_macros 1
 %endif
 
 BuildRequires:  gcc
@@ -19,6 +19,10 @@ BuildRequires:  cargo
 BuildRequires:  rust
 BuildRequires:  pkgconf-pkg-config
 BuildRequires:  gzip
+%if 0%{?amzn}
+BuildRequires: rust-packaging
+BuildRequires: rust-srpm-macros
+%endif
 
 %description
 Yazi (means "duck") is a terminal file manager written in Rust, based on
@@ -29,8 +33,15 @@ terminal file management experience.
 %autosetup -n yazi-%{version}
 
 %build
+%if 0%{?amzn}
+# AL2023: do NOT use RPM Rust macros at all
+unset RUSTFLAGS
 export RUSTFLAGS="-Copt-level=3 -Cdebuginfo=2 --cap-lints=warn"
 cargo build --release --locked
+%else
+# RHEL 9/10: normal Rust RPM behaviour
+cargo build --release --locked
+%endif
 
 %install
 install -Dpm0755 target/release/yazi %{buildroot}%{_bindir}/yazi
