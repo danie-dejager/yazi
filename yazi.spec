@@ -12,13 +12,18 @@ Source0:        https://github.com/sxyazi/yazi/archive/refs/tags/v%{version}.tar
 %if 0%{?amzn}
 %global __cargo_skip_rpm_macros 1
 %endif
+%if 0%{?rhel} == 9
+%global use_rustup 1
+%endif
 
 BuildRequires:  gcc
 BuildRequires:  make
-BuildRequires:  cargo
-BuildRequires:  rust
 BuildRequires:  pkgconf-pkg-config
 BuildRequires:  gzip
+%if !0%{?use_rustup}
+BuildRequires: cargo
+BuildRequires: rust
+%endif
 %if 0%{?amzn}
 BuildRequires: rust-packaging
 BuildRequires: rust-srpm-macros
@@ -33,15 +38,22 @@ terminal file management experience.
 %autosetup -n yazi-%{version}
 
 %build
+# ---------------- Toolchain selection ----------------
+
+%if 0%{?use_rustup}
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+export PATH="$PATH:$HOME/.cargo/bin"
+%endif
+
 %if 0%{?amzn}
-# AL2023: do NOT use RPM Rust macros at all
 unset RUSTFLAGS
 export RUSTFLAGS="-Copt-level=3 -Cdebuginfo=2 --cap-lints=warn"
-cargo build --release --locked
-%else
-# RHEL 9/10: normal Rust RPM behaviour
-cargo build --release --locked
 %endif
+
+cargo build --release --locked
+
+strip --strip-all target/release/%{name}
+mkdir -p %{buildroot}/%{_bindir}
 
 %install
 install -Dpm0755 target/release/yazi %{buildroot}%{_bindir}/yazi
