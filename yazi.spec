@@ -11,6 +11,7 @@ URL:      https://github.com/sxyazi/yazi
 Source0:  https://github.com/sxyazi/yazi/archive/refs/tags/v%{version}.tar.gz
 
 %define debug_package %{nil}
+%global _package_note_file %{nil}
 
 BuildRequires: curl
 BuildRequires: gcc
