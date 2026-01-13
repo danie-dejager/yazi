@@ -12,6 +12,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+### Added
+
+- Tree view for the preset archive previewer ([#3525])
+- Support compressed tarballs (`.tar.gz`, `.tar.bz2`, etc.) in the preset archive previewer ([#3518])
+- New `Path.os()` API creates an OS-native `Path` ([#3541])
+
+### Fixed
+
+- Smart-case in interactive `cd` broken due to a typo ([#3540])
+- Fix shell formatting for non-spread opener rules ([#3532])
+- Account for URL covariance in `Url:join()` ([#3514])
+
 ## [v26.1.4]
 
 ### Added
@@ -363,7 +375,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Fixed
 
-- Correctly handle CRLF on Windows in preset `archive` and `json` plugins ([#2017])
+- Correctly handle CRLF on Windows in preset archive and JSON plugins ([#2017])
 - Failed to parse certain image dimensions for Überzug++ backend ([#2020])
 - Disable passthrough when the user launches Yazi in Neovim inside tmux ([#2014])
 
@@ -1583,3 +1595,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3477]: https://github.com/sxyazi/yazi/pull/3477
 [#3482]: https://github.com/sxyazi/yazi/pull/3482
 [#3494]: https://github.com/sxyazi/yazi/pull/3494
+[#3514]: https://github.com/sxyazi/yazi/pull/3514
+[#3518]: https://github.com/sxyazi/yazi/pull/3518
+[#3525]: https://github.com/sxyazi/yazi/pull/3525
+[#3532]: https://github.com/sxyazi/yazi/pull/3532
+[#3540]: https://github.com/sxyazi/yazi/pull/3540
+[#3541]: https://github.com/sxyazi/yazi/pull/3541
