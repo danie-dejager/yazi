@@ -27,6 +27,7 @@ yazi-dds    = { path = "../yazi-dds", version = "26.1.4" }
 yazi-fs     = { path = "../yazi-fs", version = "26.1.4" }
 yazi-macro  = { path = "../yazi-macro", version = "26.1.4" }
 yazi-shared = { path = "../yazi-shared", version = "26.1.4" }
+yazi-term   = { path = "../yazi-term", version = "26.1.4" }
 
 # External dependencies
 anyhow     = { workspace = true }
@@ -48,7 +49,7 @@ clap_complete         = "4.5.65"
 clap_complete_fig     = "4.5.2"
 clap_complete_nushell = "4.5.10"
 serde_json            = { workspace = true }
-vergen-gitcl          = { version = "1.0.8", features = [ "build" ] }
+vergen-gitcl          = { version = "9.1.0", features = [ "build" ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 crossterm = { workspace = true, features = [ "use-dev-tty", "libc" ] }
