@@ -12,11 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+## [v26.1.22]
+
 ### Added
 
 - Tree view for the preset archive previewer ([#3525])
 - Support compressed tarballs (`.tar.gz`, `.tar.bz2`, etc.) in the preset archive previewer ([#3518])
 - Check and refresh the file list when the terminal gains focus ([#3561])
+- Experimental module-level async support ([#3594])
 - Disable ANSI escape sequences in `ya pkg` when stdout is not a TTY ([#3566])
 - New `Path.os()` API creates an OS-native `Path` ([#3541])
 
@@ -1004,6 +1007,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [v25.5.31]: https://github.com/sxyazi/yazi/compare/v25.5.28...v25.5.31
 [v25.12.29]: https://github.com/sxyazi/yazi/compare/v25.5.31...v25.12.29
 [v26.1.4]: https://github.com/sxyazi/yazi/compare/v25.12.29...v26.1.4
+[v26.1.22]: https://github.com/sxyazi/yazi/compare/v26.1.4...v26.1.22
 [#4]: https://github.com/sxyazi/yazi/pull/4
 [#5]: https://github.com/sxyazi/yazi/pull/5
 [#6]: https://github.com/sxyazi/yazi/pull/6
@@ -1607,3 +1611,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3561]: https://github.com/sxyazi/yazi/pull/3561
 [#3566]: https://github.com/sxyazi/yazi/pull/3566
 [#3582]: https://github.com/sxyazi/yazi/pull/3582
+[#3594]: https://github.com/sxyazi/yazi/pull/3594
