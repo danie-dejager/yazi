@@ -1,5 +1,5 @@
 Name:           yazi
-Version:        26.1.4
+Version:        26.1.22
 Release:        1%{?dist}
 Summary:        Blazing fast terminal file manager written in Rust, based on async I/O
 
@@ -66,5 +66,6 @@ install -Dpm0755 target/release/ya   %{buildroot}%{_bindir}/ya
 %{_bindir}/ya
 
 %changelog
-* Mon Jan 05 2026 Danie de Jager <danie.dejager@gmail.com> - 26.1.4-1
+* Thu Jan 22 2026 - Danie de Jager <danie.dejager@gmail.com> - 26.1.22-1
+* Mon Jan 05 2026 - Danie de Jager <danie.dejager@gmail.com> - 26.1.4-1
 - Unified spec for RHEL 9/10 and Amazon Linux 2023
