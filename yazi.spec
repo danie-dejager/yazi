@@ -12,7 +12,7 @@ Source0:        https://github.com/sxyazi/yazi/archive/refs/tags/v%{version}.tar
 %if 0%{?amzn}
 %global __cargo_skip_rpm_macros 1
 %endif
-%if 0%{?rhel} == 9
+%if 0%{?rhel} == 9 || 0%{?rhel} == 10
 %global use_rustup 1
 %endif
 
