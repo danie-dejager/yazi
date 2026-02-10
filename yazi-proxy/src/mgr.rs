@@ -35,6 +35,10 @@ impl MgrProxy {
 		emit!(Call(relay!(mgr:open_do).with_any("opt", opt)));
 	}
 
+	pub fn refresh() {
+		emit!(Call(relay!(mgr:refresh)));
+	}
+
 	pub fn remove_do(targets: Vec<UrlBuf>, permanently: bool) {
 		emit!(Call(
 			relay!(mgr:remove_do).with("permanently", permanently).with_any("targets", targets)
@@ -52,6 +56,10 @@ impl MgrProxy {
 				.with("via", Cow::Borrowed(opt.via.into_str()))
 				.with("args", opt.args_raw.into_owned())
 		));
+	}
+
+	pub fn tab_rename(tab: Id, name: impl Into<SStr>) {
+		emit!(Call(relay!(mgr:tab_rename, [name.into()]).with("tab", tab)));
 	}
 
 	pub fn update_paged_by(page: usize, only_if: &UrlBuf) {

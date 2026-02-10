@@ -1,10 +1,17 @@
-use tokio::sync::oneshot;
-use yazi_shared::event::CmdCow;
+use mlua::{ExternalError, FromLua, IntoLua, Lua, Value};
+use tokio::sync::mpsc;
+use yazi_shared::CompletionToken;
 
+#[derive(Debug)]
 pub struct StopOpt {
-	pub tx: Option<oneshot::Sender<()>>,
+	pub tx:    mpsc::UnboundedSender<(bool, CompletionToken)>,
+	pub token: CompletionToken,
 }
 
-impl From<CmdCow> for StopOpt {
-	fn from(mut c: CmdCow) -> Self { Self { tx: c.take_any("tx") } }
+impl FromLua for StopOpt {
+	fn from_lua(_: Value, _: &Lua) -> mlua::Result<Self> { Err("unsupported".into_lua_err()) }
+}
+
+impl IntoLua for StopOpt {
+	fn into_lua(self, _: &Lua) -> mlua::Result<Value> { Err("unsupported".into_lua_err()) }
 }

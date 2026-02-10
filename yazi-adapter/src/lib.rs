@@ -1,10 +1,10 @@
 yazi_macro::mod_pub!(drivers);
 
-yazi_macro::mod_flat!(adapter brand dimension emulator icc image info mux unknown);
+yazi_macro::mod_flat!(adapter adapters icc image info);
 
-use yazi_shared::{RoCell, SyncCell, in_wsl};
+use yazi_emulator::{Brand, CLOSE, EMULATOR, ESCAPE, Emulator, Mux, START, TMUX};
+use yazi_shared::{SyncCell, in_wsl};
 
-pub static EMULATOR: RoCell<Emulator> = RoCell::new();
 pub static ADAPTOR: SyncCell<Adapter> = SyncCell::new(Adapter::Chafa);
 
 // Image state
@@ -13,19 +13,13 @@ static SHOWN: SyncCell<Option<ratatui::layout::Rect>> = SyncCell::new(None);
 // WSL support
 pub static WSL: SyncCell<bool> = SyncCell::new(false);
 
-// Tmux support
-pub static TMUX: SyncCell<bool> = SyncCell::new(false);
-static ESCAPE: SyncCell<&'static str> = SyncCell::new("\x1b");
-static START: SyncCell<&'static str> = SyncCell::new("\x1b");
-static CLOSE: SyncCell<&'static str> = SyncCell::new("");
-
 pub fn init() -> anyhow::Result<()> {
 	// WSL support
 	WSL.set(in_wsl());
 
 	// Emulator detection
 	let mut emulator = Emulator::detect().unwrap_or_default();
-	TMUX.set(emulator.kind.is_left_and(|&b| b == Brand::Tmux));
+	TMUX.set(emulator.kind.left() == Some(Brand::Tmux));
 
 	// Tmux support
 	if TMUX.get() {

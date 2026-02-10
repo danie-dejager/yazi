@@ -11,13 +11,11 @@ pub fn compose(
 			// App
 			b"id" => Utils::id(lua)?,
 			b"drop" => Utils::drop(lua)?,
-			b"hide" => Utils::hide(lua)?,
 
 			// Cache
 			b"file_cache" => Utils::file_cache(lua)?,
 
 			// Call
-			b"render" => Utils::render(lua)?,
 			b"emit" => Utils::emit(lua)?,
 			b"mgr_emit" => Utils::mgr_emit(lua)?,
 
@@ -52,7 +50,7 @@ pub fn compose(
 			b"spot_widgets" => Utils::spot_widgets(lua)?,
 
 			// Sync
-			b"sync" => Utils::sync(lua, isolate)?,
+			b"sync" => Utils::sync(lua)?,
 			b"async" => Utils::r#async(lua, isolate)?,
 			b"chan" => Utils::chan(lua)?,
 			b"join" => Utils::join(lua)?,
@@ -65,7 +63,6 @@ pub fn compose(
 			// Text
 			b"hash" => Utils::hash(lua)?,
 			b"quote" => Utils::quote(lua)?,
-			b"truncate" => Utils::truncate(lua)?,
 			b"clipboard" => Utils::clipboard(lua)?,
 
 			// Time

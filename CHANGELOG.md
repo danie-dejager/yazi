@@ -12,6 +12,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+### Added
+
+- New `fs.access()` API to access the filesystem ([#3668])
+- Allow using `ps.sub()` in `init.lua` directly without a plugin ([#3638])
+- New `relay-notify-push` DDS event to allow custom notification handlers ([#3642])
+- Custom tab name ([#3666])
+- New `cx.which` API to access the which component state ([#3617])
+- New `ind-which-activate` DDS event to change the which component behavior ([#3608])
+
+### Changed
+
+- Upgrade Lua to 5.5 ([#3633])
+- Change preset <kbd>t</kbd> for creating tabs to <kbd>t</kbd> ⇒ <kbd>t</kbd> to avoid conflict with new <kbd>t</kbd> ⇒ <kbd>r</kbd> for renaming tabs ([#3666])
+- Remove `micro_workers` and `macro_workers` in favor of finer control over concurrent workers ([#3661])
+
+### Fixed
+
+- Archive extraction fails for target paths with non-ASCII characters on Windows ([#3607])
+- Make `ya pkg` ignore default remote name in user Git config ([#3648])
+
+### Improved
+
+- Reduce memory allocations by using Lua 5.5 external strings ([#3634])
+
 ## [v26.1.22]
 
 ### Added
@@ -1612,3 +1636,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3566]: https://github.com/sxyazi/yazi/pull/3566
 [#3582]: https://github.com/sxyazi/yazi/pull/3582
 [#3594]: https://github.com/sxyazi/yazi/pull/3594
+[#3607]: https://github.com/sxyazi/yazi/pull/3607
+[#3608]: https://github.com/sxyazi/yazi/pull/3608
+[#3617]: https://github.com/sxyazi/yazi/pull/3617
+[#3633]: https://github.com/sxyazi/yazi/pull/3633
+[#3634]: https://github.com/sxyazi/yazi/pull/3634
+[#3638]: https://github.com/sxyazi/yazi/pull/3638
+[#3642]: https://github.com/sxyazi/yazi/pull/3642
+[#3648]: https://github.com/sxyazi/yazi/pull/3648
+[#3661]: https://github.com/sxyazi/yazi/pull/3661
+[#3666]: https://github.com/sxyazi/yazi/pull/3666
+[#3668]: https://github.com/sxyazi/yazi/pull/3668

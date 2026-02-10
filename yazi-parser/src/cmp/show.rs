@@ -1,10 +1,8 @@
-use std::path::MAIN_SEPARATOR_STR;
-
 use anyhow::bail;
 use mlua::{ExternalError, FromLua, IntoLua, Lua, Value};
-use yazi_shared::{Id, event::CmdCow, path::PathBufDyn, strand::{StrandBuf, StrandLike}, url::UrlBuf};
+use yazi_shared::{Id, event::CmdCow, path::PathBufDyn, strand::StrandBuf, url::UrlBuf};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ShowOpt {
 	pub cache:      Vec<CmpItem>,
 	pub cache_name: UrlBuf,
@@ -37,10 +35,4 @@ impl IntoLua for ShowOpt {
 pub struct CmpItem {
 	pub name:   StrandBuf,
 	pub is_dir: bool,
-}
-
-impl CmpItem {
-	pub fn completable(&self) -> String {
-		format!("{}{}", self.name.to_string_lossy(), if self.is_dir { MAIN_SEPARATOR_STR } else { "" })
-	}
 }

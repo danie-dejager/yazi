@@ -4,7 +4,7 @@ use anyhow::bail;
 use mlua::{ExternalError, FromLua, IntoLua, Lua, Value};
 use yazi_shared::event::CmdCow;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TickOpt {
 	pub interval: Duration,
 }
@@ -14,7 +14,7 @@ impl TryFrom<CmdCow> for TickOpt {
 
 	fn try_from(c: CmdCow) -> Result<Self, Self::Error> {
 		let Ok(interval) = c.first() else {
-			bail!("Invalid 'interval' argument in TickOpt");
+			bail!("Invalid 'interval' in TickOpt");
 		};
 
 		if interval < 0.0 {

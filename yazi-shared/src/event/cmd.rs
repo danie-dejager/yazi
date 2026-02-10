@@ -1,12 +1,12 @@
-use std::{any::Any, borrow::Cow, fmt::{self, Display}, mem, str::FromStr};
+use std::{borrow::Cow, fmt::{self, Display}, mem, str::FromStr};
 
 use anyhow::{Result, anyhow, bail};
 use hashbrown::HashMap;
 use serde::{Deserialize, de};
 
-use crate::{Layer, SStr, Source, data::{Data, DataKey}};
+use crate::{Layer, SStr, Source, data::{Data, DataAny, DataKey}};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Cmd {
 	pub name:   SStr,
 	pub args:   HashMap<DataKey, Data>,
@@ -76,7 +76,7 @@ impl Cmd {
 		self
 	}
 
-	pub fn with_any(mut self, name: impl Into<DataKey>, data: impl Any + Send + Sync) -> Self {
+	pub fn with_any(mut self, name: impl Into<DataKey>, data: impl DataAny) -> Self {
 		self.args.insert(name.into(), Data::Any(Box::new(data)));
 		self
 	}
@@ -185,6 +185,10 @@ impl Cmd {
 		self.args.remove(&name.into()).map(Data::into_any2)
 	}
 
+	pub fn take_any_iter<T: 'static>(&mut self) -> impl Iterator<Item = T> {
+		(0..self.len()).filter_map(|i| self.args.remove(&DataKey::from(i))?.into_any())
+	}
+
 	// Parse
 	pub fn parse_args<I>(words: I, last: Option<String>) -> Result<HashMap<DataKey, Data>>
 	where
@@ -205,7 +209,7 @@ impl Cmd {
 				let key = parts.next().expect("at least one part");
 				let val = parts.next().map_or(Data::Boolean(true), Data::from);
 
-				Ok((DataKey::from(key.to_owned()), val))
+				Ok((key.to_owned().into(), val))
 			})
 			.collect()
 	}

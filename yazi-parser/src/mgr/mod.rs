@@ -19,7 +19,6 @@ yazi_macro::mod_flat!(
 	open_do
 	paste
 	peek
-	quit
 	remove
 	rename
 	reveal
@@ -31,6 +30,7 @@ yazi_macro::mod_flat!(
 	stash
 	tab_close
 	tab_create
+	tab_rename
 	tab_switch
 	toggle
 	toggle_all

@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{iter, ops::Deref};
 
 use anyhow::Result;
 
@@ -11,14 +11,6 @@ pub enum CmdCow {
 	Borrowed(&'static Cmd),
 }
 
-impl From<Cmd> for CmdCow {
-	fn from(c: Cmd) -> Self { Self::Owned(c) }
-}
-
-impl From<&'static Cmd> for CmdCow {
-	fn from(c: &'static Cmd) -> Self { Self::Borrowed(c) }
-}
-
 impl Deref for CmdCow {
 	type Target = Cmd;
 
@@ -28,6 +20,18 @@ impl Deref for CmdCow {
 			Self::Borrowed(c) => c,
 		}
 	}
+}
+
+impl From<CmdCow> for () {
+	fn from(_: CmdCow) -> Self { () }
+}
+
+impl From<Cmd> for CmdCow {
+	fn from(c: Cmd) -> Self { Self::Owned(c) }
+}
+
+impl From<&'static Cmd> for CmdCow {
+	fn from(c: &'static Cmd) -> Self { Self::Borrowed(c) }
 }
 
 impl CmdCow {
@@ -90,6 +94,13 @@ impl CmdCow {
 		match self {
 			Self::Owned(c) => c.take_any2(name),
 			Self::Borrowed(_) => None,
+		}
+	}
+
+	pub fn take_any_iter<'a, T: 'static>(&'a mut self) -> Box<dyn Iterator<Item = T> + 'a> {
+		match self {
+			Self::Owned(c) => Box::new(c.take_any_iter()),
+			Self::Borrowed(_) => Box::new(iter::empty()),
 		}
 	}
 }

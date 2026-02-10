@@ -26,6 +26,7 @@ impl Deref for Loader {
 impl Default for Loader {
 	fn default() -> Self {
 		let cache = HashMap::from_iter([
+			// Plugins
 			("archive".to_owned(), preset!("plugins/archive").into()),
 			("code".to_owned(), preset!("plugins/code").into()),
 			("dds".to_owned(), preset!("plugins/dds").into()),
@@ -36,9 +37,10 @@ impl Default for Loader {
 			("font".to_owned(), preset!("plugins/font").into()),
 			("fzf".to_owned(), preset!("plugins/fzf").into()),
 			("image".to_owned(), preset!("plugins/image").into()),
+			("init".to_owned(), preset!("plugins/init").into()),
 			("json".to_owned(), preset!("plugins/json").into()),
 			("magick".to_owned(), preset!("plugins/magick").into()),
-			("mime".to_owned(), preset!("plugins/mime").into()), // TODO: remove this
+			("mime".to_owned(), preset!("plugins/mime").into()),
 			("mime.dir".to_owned(), preset!("plugins/mime-dir").into()),
 			("mime.local".to_owned(), preset!("plugins/mime-local").into()),
 			("mime.remote".to_owned(), preset!("plugins/mime-remote").into()),
@@ -50,6 +52,22 @@ impl Default for Loader {
 			("vfs".to_owned(), preset!("plugins/vfs").into()),
 			("video".to_owned(), preset!("plugins/video").into()),
 			("zoxide".to_owned(), preset!("plugins/zoxide").into()),
+			// Components
+			("current".to_owned(), [][..].into()),
+			("entity".to_owned(), [][..].into()),
+			("header".to_owned(), [][..].into()),
+			("linemode".to_owned(), [][..].into()),
+			("marker".to_owned(), [][..].into()),
+			("modal".to_owned(), [][..].into()),
+			("parent".to_owned(), [][..].into()),
+			("preview".to_owned(), [][..].into()),
+			("progress".to_owned(), [][..].into()),
+			("rail".to_owned(), [][..].into()),
+			("root".to_owned(), [][..].into()),
+			("status".to_owned(), [][..].into()),
+			("tab".to_owned(), [][..].into()),
+			("tabs".to_owned(), [][..].into()),
+			("tasks".to_owned(), [][..].into()),
 		]);
 		Self { cache: RwLock::new(cache) }
 	}
@@ -87,14 +105,14 @@ impl Loader {
 			return Ok(t);
 		}
 
-		let t = self.load_once(lua, id).await?;
+		let t = self.load_new(lua, id).await?;
 		t.raw_set("_id", lua.create_string(id)?)?;
 
 		loaded.raw_set(id, t.clone())?;
 		Ok(t)
 	}
 
-	pub async fn load_once(&self, lua: &Lua, id: &str) -> mlua::Result<Table> {
+	async fn load_new(&self, lua: &Lua, id: &str) -> mlua::Result<Table> {
 		let (id, ..) = Self::normalize_id(id)?;
 
 		let mut mode = ChunkMode::Text;
@@ -117,12 +135,7 @@ impl Loader {
 		f.call_async(()).await
 	}
 
-	pub fn try_load(&self, lua: &Lua, id: &str) -> mlua::Result<Table> {
-		let (id, ..) = Self::normalize_id(id)?;
-		lua.globals().raw_get::<Table>("package")?.raw_get::<Table>("loaded")?.raw_get(id)
-	}
-
-	pub fn load_with(&self, lua: &Lua, id: &str, chunk: &Chunk) -> mlua::Result<Table> {
+	pub fn load_chunk(&self, lua: &Lua, id: &str, chunk: &Chunk) -> mlua::Result<Table> {
 		let (id, ..) = Self::normalize_id(id)?;
 
 		let loaded: Table = lua.globals().raw_get::<Table>("package")?.raw_get("loaded")?;
@@ -135,6 +148,11 @@ impl Loader {
 
 		loaded.raw_set(id, t.clone())?;
 		Ok(t)
+	}
+
+	pub fn try_load(&self, lua: &Lua, id: &str) -> mlua::Result<Table> {
+		let (id, ..) = Self::normalize_id(id)?;
+		lua.globals().raw_get::<Table>("package")?.raw_get::<Table>("loaded")?.raw_get(id)
 	}
 
 	pub fn compatible_or_error(id: &str, chunk: &Chunk) -> Result<()> {

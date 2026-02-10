@@ -2,27 +2,35 @@ use std::fmt::Display;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SparkKind {
-	// Sort
+	// sort
 	KeySort,
 	IndSort,
-	// Stash
+	// stash
 	IndStash,
 	RelayStash,
-	// Quit
+	// quit
 	KeyQuit,
+	// which:activate
+	IndWhichActivate,
+	// notify:push
+	RelayNotifyPush,
 }
 
 impl AsRef<str> for SparkKind {
 	fn as_ref(&self) -> &str {
 		match self {
-			// Sort
+			// sort
 			Self::KeySort => "key-sort",
 			Self::IndSort => "ind-sort",
-			// Stash
+			// stash
 			Self::IndStash => "ind-stash",
 			Self::RelayStash => "relay-stash",
-			// Quit
+			// quit
 			Self::KeyQuit => "key-quit",
+			// which:activate
+			Self::IndWhichActivate => "ind-which-activate",
+			// notify:push
+			Self::RelayNotifyPush => "relay-notify-push",
 		}
 	}
 }

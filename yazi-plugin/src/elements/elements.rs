@@ -66,7 +66,7 @@ pub(super) fn printable(lua: &Lua) -> mlua::Result<Value> {
 	let f = lua.create_function(|lua, s: mlua::String| {
 		Ok(match replace_to_printable(&s.as_bytes(), false, 1, true) {
 			Cow::Borrowed(_) => s,
-			Cow::Owned(new) => lua.create_string(&new)?,
+			Cow::Owned(new) => lua.create_external_string(new)?,
 		})
 	})?;
 
@@ -138,7 +138,7 @@ pub(super) fn truncate(lua: &Lua) -> mlua::Result<Value> {
 		}
 
 		let lossy = String::from_utf8_lossy(&b);
-		let rtl = t.raw_get("rtl").unwrap_or(false);
+		let rtl = t.raw_get("rtl")?;
 		let (idx, width, remain) = if rtl {
 			traverse(lossy.char_indices().rev(), max)
 		} else {
@@ -162,7 +162,7 @@ pub(super) fn truncate(lua: &Lua) -> mlua::Result<Value> {
 				"…".bytes().chain(lossy[idx + len..].bytes()).collect()
 			}
 		};
-		lua.create_string(result)
+		lua.create_external_string(result)
 	})?;
 
 	f.into_lua(lua)

@@ -1,13 +1,13 @@
-use std::{any::Any, borrow::Cow};
+use std::borrow::Cow;
 
 use anyhow::{Result, bail};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{Id, SStr, data::DataKey, path::PathBufDyn, url::{UrlBuf, UrlCow}};
+use crate::{Id, SStr, data::{DataAny, DataKey}, path::PathBufDyn, strand::{IntoStrand, StrandBuf}, url::{UrlBuf, UrlCow}};
 
 // --- Data
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Data {
 	Nil,
@@ -25,7 +25,7 @@ pub enum Data {
 	#[serde(skip)]
 	Bytes(Vec<u8>),
 	#[serde(skip)]
-	Any(Box<dyn Any + Send + Sync>),
+	Any(Box<dyn DataAny>),
 }
 
 impl From<()> for Data {
@@ -178,6 +178,32 @@ impl<'a> TryFrom<&'a Data> for &'a [u8] {
 	}
 }
 
+impl TryFrom<Data> for StrandBuf {
+	type Error = anyhow::Error;
+
+	fn try_from(value: Data) -> Result<Self, Self::Error> {
+		Ok(match value {
+			Data::String(s) => s.into_owned().into(),
+			Data::Path(p) => p.into_strand(),
+			Data::Bytes(b) => StrandBuf::Bytes(b),
+			_ => bail!("cannot convert to StrandBuf"),
+		})
+	}
+}
+
+impl TryFrom<&Data> for StrandBuf {
+	type Error = anyhow::Error;
+
+	fn try_from(value: &Data) -> Result<Self, Self::Error> {
+		Ok(match value {
+			Data::String(s) => s.to_string().into(),
+			Data::Path(p) => p.into_strand(),
+			Data::Bytes(b) => StrandBuf::Bytes(b.clone()),
+			_ => bail!("cannot convert to StrandBuf"),
+		})
+	}
+}
+
 impl PartialEq<bool> for Data {
 	fn eq(&self, other: &bool) -> bool { self.try_into().is_ok_and(|b| *other == b) }
 }
@@ -199,7 +225,7 @@ impl Data {
 
 	pub fn into_any<T: 'static>(self) -> Option<T> {
 		match self {
-			Self::Any(b) => b.downcast::<T>().ok().map(|b| *b),
+			Self::Any(b) => b.into_any().downcast::<T>().ok().map(|b| *b),
 			_ => None,
 		}
 	}
@@ -207,7 +233,7 @@ impl Data {
 	// FIXME: find a better name
 	pub fn into_any2<T: 'static>(self) -> Result<T> {
 		if let Self::Any(b) = self
-			&& let Ok(t) = b.downcast::<T>()
+			&& let Ok(t) = b.into_any().downcast::<T>()
 		{
 			Ok(*t)
 		} else {

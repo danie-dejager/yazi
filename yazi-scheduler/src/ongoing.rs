@@ -1,11 +1,11 @@
-use hashbrown::{HashMap, hash_map::RawEntryMut};
+use hashbrown::{HashMap, hash_map::Entry};
 use ordered_float::OrderedFloat;
 use yazi_config::YAZI;
 use yazi_parser::app::TaskSummary;
 use yazi_shared::{CompletionToken, Id, Ids};
 
 use super::Task;
-use crate::{TaskIn, TaskProg};
+use crate::{TaskProg, hook::HookIn};
 
 #[derive(Default)]
 pub struct Ongoing {
@@ -23,9 +23,9 @@ impl Ongoing {
 		self.inner.entry(id).insert(Task::new::<T>(id, name)).into_mut()
 	}
 
-	pub(super) fn cancel(&mut self, id: Id) -> Option<TaskIn> {
-		match self.inner.raw_entry_mut().from_key(&id) {
-			RawEntryMut::Occupied(mut oe) => {
+	pub(super) fn cancel(&mut self, id: Id) -> Option<HookIn> {
+		match self.inner.entry(id) {
+			Entry::Occupied(mut oe) => {
 				let task = oe.get_mut();
 				task.done.complete(false);
 
@@ -35,7 +35,7 @@ impl Ongoing {
 
 				oe.remove();
 			}
-			RawEntryMut::Vacant(_) => {}
+			Entry::Vacant(_) => {}
 		}
 		None
 	}

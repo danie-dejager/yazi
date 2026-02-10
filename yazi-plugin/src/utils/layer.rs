@@ -1,17 +1,15 @@
 use std::{str::FromStr, time::Duration};
 
 use mlua::{ExternalError, ExternalResult, Function, IntoLuaMulti, Lua, Table, Value};
-use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use yazi_binding::{deprecate, elements::{Line, Pos, Text}, runtime};
-use yazi_config::{keymap::{Chord, Key}, popup::{ConfirmCfg, InputCfg}};
+use yazi_binding::{InputRx, elements::{Line, Pos, Text}, runtime};
+use yazi_config::{keymap::{Chord, ChordCow, Key}, popup::{ConfirmCfg, InputCfg}};
 use yazi_macro::relay;
-use yazi_parser::which::ShowOpt;
-use yazi_proxy::{AppProxy, ConfirmProxy, InputProxy, WhichProxy};
-use yazi_shared::Debounce;
+use yazi_parser::notify::PushOpt;
+use yazi_proxy::{ConfirmProxy, InputProxy, NotifyProxy, WhichProxy};
+use yazi_shared::{Debounce, Layer};
 
 use super::Utils;
-use crate::bindings::InputRx;
 
 impl Utils {
 	pub(super) fn which(lua: &Lua) -> mlua::Result<Function> {
@@ -20,26 +18,29 @@ impl Utils {
 				return Err("Cannot call `ya.which()` while main thread is blocked".into_lua_err());
 			}
 
-			let (tx, mut rx) = mpsc::channel::<usize>(1);
 			let cands: Vec<_> = t
 				.raw_get::<Table>("cands")?
 				.sequence_values::<Table>()
 				.enumerate()
 				.map(|(i, cand)| {
 					let cand = cand?;
-					Ok(Chord {
+					Ok(ChordCow::Owned(Chord {
 						on:    Self::parse_keys(cand.raw_get("on")?)?,
-						run:   vec![relay!(which:callback, [i]).with_any("tx", tx.clone())],
+						run:   vec![relay!(which:callback, [i + 1])],
 						desc:  cand.raw_get("desc").ok(),
 						r#for: None,
-					})
+					}))
 				})
 				.collect::<mlua::Result<_>>()?;
 
-			drop(tx);
-			WhichProxy::show(ShowOpt { cands, silent: t.raw_get("silent").unwrap_or_default() });
+			let idx: Option<usize> = WhichProxy::activate(cands, t.raw_get("silent")?)
+				.await
+				.iter()
+				.flat_map(|chord| &chord.run)
+				.find(|cmd| cmd.layer == Layer::Which && cmd.name == "callback")
+				.and_then(|cmd| cmd.first().ok());
 
-			Ok(rx.recv().await.map(|idx| idx + 1))
+			Ok(idx)
 		})
 	}
 
@@ -49,21 +50,13 @@ impl Utils {
 				return Err("Cannot call `ya.input()` while main thread is blocked".into_lua_err());
 			}
 
-			let mut pos = t.raw_get::<Value>("pos")?;
-			if pos.is_nil() {
-				pos = t.raw_get("position")?;
-				if !pos.is_nil() {
-					deprecate!(lua, "The `position` property of `ya.input()` is deprecated, use `pos` instead in your {}\nSee #2921 for more details: https://github.com/sxyazi/yazi/pull/2921");
-				}
-			}
-
-			let realtime = t.raw_get("realtime").unwrap_or_default();
+			let realtime = t.raw_get("realtime")?;
 			let rx = UnboundedReceiverStream::new(InputProxy::show(InputCfg {
 				title: t.raw_get("title")?,
 				value: t.raw_get("value").unwrap_or_default(),
 				cursor: None, // TODO
-				obscure: t.raw_get("obscure").unwrap_or_default(),
-				position: Pos::new_input(pos)?.into(),
+				obscure: t.raw_get("obscure")?,
+				position: Pos::new_input(t.raw_get("pos")?)?.into(),
 				realtime,
 				completion: false,
 			}));
@@ -108,10 +101,7 @@ impl Utils {
 	}
 
 	pub(super) fn notify(lua: &Lua) -> mlua::Result<Function> {
-		lua.create_function(|_, t: Table| {
-			AppProxy::notify(t.try_into()?);
-			Ok(())
-		})
+		lua.create_function(|_, opt: PushOpt| Ok(NotifyProxy::push(opt)))
 	}
 
 	fn parse_keys(value: Value) -> mlua::Result<Vec<Key>> {

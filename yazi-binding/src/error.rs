@@ -1,10 +1,10 @@
 use std::{borrow::Cow, fmt::Display};
 
-use mlua::{ExternalError, FromLua, Lua, MetaMethod, UserData, UserDataFields, UserDataMethods, Value};
+use mlua::{ExternalError, Lua, MetaMethod, UserData, UserDataFields, UserDataMethods, Value};
+use yazi_codegen::FromLuaOwned;
 use yazi_shared::SStr;
 
-const EXPECTED: &str = "expected a Error";
-
+#[derive(FromLuaOwned)]
 pub enum Error {
 	Io(std::io::Error),
 	Fs(yazi_fs::error::Error),
@@ -53,15 +53,6 @@ impl Display for Error {
 	}
 }
 
-impl FromLua for Error {
-	fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
-		match value {
-			Value::UserData(ud) => ud.take(),
-			_ => Err(EXPECTED.into_lua_err()),
-		}
-	}
-}
-
 impl UserData for Error {
 	fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
 		fields.add_field_method_get("code", |_, me| {
@@ -83,7 +74,7 @@ impl UserData for Error {
 	fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
 		methods.add_meta_method(MetaMethod::ToString, |lua, me, ()| {
 			Ok(match me {
-				Self::Io(_) | Self::Fs(_) | Self::Serde(_) => lua.create_string(me.to_string()),
+				Self::Io(_) | Self::Fs(_) | Self::Serde(_) => lua.create_external_string(me.to_string()),
 				Self::Custom(s) => lua.create_string(&**s),
 			})
 		});
@@ -91,11 +82,11 @@ impl UserData for Error {
 			match (lhs, rhs) {
 				(Value::String(l), Value::UserData(r)) => {
 					let r = r.borrow::<Self>()?;
-					lua.create_string([&l.as_bytes(), r.to_string().as_bytes()].concat())
+					lua.create_external_string([&l.as_bytes(), r.to_string().as_bytes()].concat())
 				}
 				(Value::UserData(l), Value::String(r)) => {
 					let l = l.borrow::<Self>()?;
-					lua.create_string([l.to_string().as_bytes(), &r.as_bytes()].concat())
+					lua.create_external_string([l.to_string().as_bytes(), &r.as_bytes()].concat())
 				}
 				_ => Err("only string can be concatenated with Error".into_lua_err()),
 			}

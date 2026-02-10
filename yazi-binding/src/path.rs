@@ -1,12 +1,14 @@
 use std::ops::Deref;
 
-use mlua::{ExternalError, ExternalResult, FromLua, Lua, MetaMethod, UserData, UserDataFields, UserDataMethods, UserDataRef, Value};
+use mlua::{ExternalError, ExternalResult, Lua, MetaMethod, UserData, UserDataFields, UserDataMethods, UserDataRef, Value};
+use yazi_codegen::FromLuaOwned;
 use yazi_shared::{path::{PathBufDyn, PathLike, StripPrefixError}, strand::{AsStrand, Strand, StrandCow}};
 
 use crate::cached_field;
 
 pub type PathRef = UserDataRef<Path>;
 
+#[derive(FromLuaOwned)]
 pub struct Path {
 	inner: PathBufDyn,
 
@@ -106,15 +108,6 @@ impl Path {
 	}
 }
 
-impl FromLua for Path {
-	fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
-		Ok(match value {
-			Value::UserData(ud) => ud.take()?,
-			_ => Err("Expected a Path".into_lua_err())?,
-		})
-	}
-}
-
 impl UserData for Path {
 	fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
 		cached_field!(fields, ext, |lua, me| {
@@ -139,7 +132,7 @@ impl UserData for Path {
 		methods.add_method("strip_prefix", |_, me, base: Value| me.strip_prefix(base));
 
 		methods.add_meta_method(MetaMethod::Concat, |lua, lhs, rhs: mlua::String| {
-			lua.create_string([lhs.encoded_bytes(), &rhs.as_bytes()].concat())
+			lua.create_external_string([lhs.encoded_bytes(), &rhs.as_bytes()].concat())
 		});
 		methods.add_meta_method(MetaMethod::Eq, |_, me, other: PathRef| Ok(me.inner == other.inner));
 		methods

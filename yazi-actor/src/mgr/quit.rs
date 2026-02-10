@@ -4,10 +4,10 @@ use anyhow::Result;
 use tokio::{select, time};
 use yazi_config::popup::ConfirmCfg;
 use yazi_dds::spark::SparkKind;
-use yazi_macro::{emit, succ};
-use yazi_parser::mgr::QuitOpt;
-use yazi_proxy::ConfirmProxy;
-use yazi_shared::{data::Data, event::EventQuit, strand::{Strand, StrandLike, ToStrandJoin}, url::AsUrl};
+use yazi_macro::{act, succ};
+use yazi_parser::app::QuitOpt;
+use yazi_proxy::{AppProxy, ConfirmProxy};
+use yazi_shared::{data::Data, strand::{Strand, StrandLike, ToStrandJoin}, url::AsUrl};
 
 use crate::{Actor, Ctx};
 
@@ -19,8 +19,6 @@ impl Actor for Quit {
 	const NAME: &str = "quit";
 
 	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
-		let event = opt.into();
-
 		let ongoing = cx.tasks().ongoing().clone();
 		let (left, left_names) = {
 			let ongoing = ongoing.lock();
@@ -28,33 +26,33 @@ impl Actor for Quit {
 		};
 
 		if left == 0 {
-			succ!(emit!(Quit(event)));
+			return act!(app:quit, cx, opt);
 		}
 
 		tokio::spawn(async move {
 			let mut i = 0;
-			let mut rx = ConfirmProxy::show_rx(ConfirmCfg::quit(left, left_names));
+			let token = ConfirmProxy::show_sync(ConfirmCfg::quit(left, left_names));
 			loop {
 				select! {
 					_ = time::sleep(Duration::from_millis(50)) => {
 						i += 1;
 						if i > 40 { break }
 						else if ongoing.lock().is_empty() {
-							emit!(Quit(event));
+							AppProxy::quit(opt);
 							return;
 						}
 					}
-					b = &mut rx => {
-						if b.unwrap_or(false) {
-							emit!(Quit(event));
+					b = token.future() => {
+						if b {
+							AppProxy::quit(opt);
 						}
 						return;
 					}
 				}
 			}
 
-			if rx.await.unwrap_or(false) {
-				emit!(Quit(event));
+			if token.future().await {
+				AppProxy::quit(opt);
 			}
 		});
 		succ!();
@@ -73,7 +71,7 @@ impl Quit {
 	{
 		let paths = selected.into_iter().join(Strand::Utf8("\n"));
 		if !paths.is_empty() {
-			emit!(Quit(EventQuit { selected: Some(paths), ..Default::default() }));
+			AppProxy::quit(QuitOpt { selected: Some(paths), ..Default::default() });
 		}
 	}
 }

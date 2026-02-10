@@ -1,9 +1,9 @@
 use std::path::MAIN_SEPARATOR_STR;
 
 use ratatui::{buffer::Buffer, layout::Rect, widgets::{Block, BorderType, List, ListItem, Widget}};
-use yazi_adapter::Dimension;
 use yazi_config::{THEME, popup::{Offset, Position}};
 use yazi_core::Core;
+use yazi_emulator::Dimension;
 use yazi_shared::strand::StrandLike;
 
 pub(crate) struct Cmp<'a> {
@@ -52,7 +52,7 @@ impl Widget for Cmp<'_> {
 			area.height = rect.height.saturating_sub(area.y).min(area.height);
 		}
 
-		yazi_binding::elements::Clear::default().render(area, buf);
+		yazi_widgets::Clear.render(area, buf);
 		List::new(items)
 			.block(Block::bordered().border_type(BorderType::Rounded).border_style(THEME.cmp.border))
 			.render(area, buf);

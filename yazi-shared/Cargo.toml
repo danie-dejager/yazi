@@ -1,6 +1,6 @@
 [package]
 name         = "yazi-shared"
-version      = "26.1.22"
+version      = "26.2.2"
 edition      = "2024"
 license      = "MIT"
 authors      = [ "sxyazi <sxyazi@gmail.com>" ]
@@ -13,15 +13,16 @@ rust-version = "1.92.0"
 workspace = true
 
 [dependencies]
-yazi-macro = { path = "../yazi-macro", version = "26.1.22" }
+yazi-macro = { path = "../yazi-macro", version = "26.2.2" }
 
 # External dependencies
 anyhow           = { workspace = true }
 crossterm        = { workspace = true }
+dyn-clone        = { workspace = true }
 foldhash         = { workspace = true }
 futures          = { workspace = true }
 hashbrown        = { workspace = true }
-memchr           = "2.7.6"
+memchr           = "2.8.0"
 ordered-float    = { workspace = true }
 parking_lot      = { workspace = true }
 percent-encoding = { workspace = true }

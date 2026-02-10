@@ -1,50 +1,44 @@
 use anyhow::Context;
 use futures::future::join_all;
-use mlua::{ExternalError, ExternalResult, Function, IntoLuaMulti, Lua, MultiValue, Value, Variadic};
-use tokio::sync::oneshot;
-use yazi_binding::{Handle, runtime, runtime_mut};
+use mlua::{ExternalError, ExternalResult, Function, IntoLuaMulti, Lua, MultiValue, Table, Value, Variadic};
+use tokio::sync::mpsc;
+use yazi_binding::{Handle, MpscRx, MpscTx, MpscUnboundedRx, MpscUnboundedTx, OneshotRx, OneshotTx, runtime, runtime_mut};
 use yazi_dds::Sendable;
-use yazi_parser::app::{PluginCallback, PluginOpt};
+use yazi_parser::app::PluginOpt;
 use yazi_proxy::AppProxy;
 use yazi_shared::{LOCAL_SET, data::Data};
 
 use super::Utils;
-use crate::{bindings::{MpscRx, MpscTx, MpscUnboundedRx, MpscUnboundedTx, OneshotRx, OneshotTx}, loader::LOADER};
+use crate::loader::LOADER;
 
 impl Utils {
-	pub(super) fn sync(lua: &Lua, isolate: bool) -> mlua::Result<Function> {
-		if isolate {
-			lua.create_function(|lua, ()| {
-				let Some(block) = runtime_mut!(lua)?.next_block() else {
-					return Err("`ya.sync()` must be called in a plugin").into_lua_err();
-				};
+	pub(super) fn sync(lua: &Lua) -> mlua::Result<Function> {
+		lua.create_function(|lua, f: Function| {
+			let mut rt = runtime_mut!(lua)?;
+			let Some(block) = rt.put_block(&f) else {
+				return Err("`ya.sync()` must be called in a plugin").into_lua_err();
+			};
 
-				lua.create_async_function(move |lua, args: MultiValue| async move {
-					let Some(cur) = runtime!(lua)?.current_owned() else {
-						return Err("`ya.sync()` block must be used within a plugin").into_lua_err();
-					};
-
-					Self::retrieve(&lua, &cur, block, args)
-						.await
-						.and_then(|data| Sendable::list_to_values(&lua, data))
-						.with_context(|| format!("Failed to execute sync block-{block} in `{cur}` plugin"))
-						.into_lua_err()
-				})
-			})
-		} else {
-			lua.create_function(|lua, f: Function| {
-				let mut rt = runtime_mut!(lua)?;
-				if !rt.put_block(&f) {
-					return Err("`ya.sync()` must be called in a plugin").into_lua_err();
+			let current = rt.current_owned()?;
+			lua.create_async_function(move |lua, mut args: MultiValue| {
+				let (f, current) = (f.clone(), current.clone());
+				async move {
+					let blocking = runtime!(lua)?.blocking;
+					if blocking {
+						args.push_front(Value::Table(LOADER.try_load(&lua, &current)?));
+						f.call::<MultiValue>(args)
+					} else {
+						Self::retrieve(&lua, &current, block, args)
+							.await
+							.and_then(|data| Sendable::list_to_values(&lua, data))
+							.with_context(|| {
+								format!("Failed to execute sync block-{block} in `{current}` plugin")
+							})
+							.into_lua_err()
+					}
 				}
-
-				let cur = rt.current_owned().unwrap();
-				lua.create_function(move |lua, mut args: MultiValue| {
-					args.push_front(Value::Table(LOADER.try_load(lua, &cur)?));
-					f.call::<MultiValue>(args)
-				})
 			})
-		}
+		})
 	}
 
 	pub(super) fn r#async(lua: &Lua, isolate: bool) -> mlua::Result<Function> {
@@ -54,14 +48,18 @@ impl Utils {
 			})
 		} else {
 			lua.create_function(|lua, (f, args): (Function, MultiValue)| {
-				let name = runtime!(lua)?.current_owned();
+				let name = runtime!(lua)?.current_owned()?;
+				let lua = lua.clone();
 
 				Ok(Handle::AsyncFn(LOCAL_SET.spawn_local(async move {
+					let blocking = runtime_mut!(lua)?.critical_push(&name, false);
 					let result = f.call_async::<MultiValue>(args).await;
+					runtime_mut!(lua)?.critical_pop(blocking)?;
+
 					if let Err(ref e) = result {
-						match name {
-							Some(s) => tracing::error!("Failed to execute async block in `{s}` plugin: {e}"),
-							None => tracing::error!("Failed to execute async block in `init.lua`: {e}"),
+						match name.as_str() {
+							"init" => tracing::error!("Failed to execute async block in `init.lua`: {e}"),
+							s => tracing::error!("Failed to execute async block in `{s}` plugin: {e}"),
 						}
 					}
 					result
@@ -115,27 +113,25 @@ impl Utils {
 		args: MultiValue,
 	) -> mlua::Result<Vec<Data>> {
 		let args = Sendable::values_to_list(lua, args)?;
-		let (tx, rx) = oneshot::channel::<Vec<Data>>();
+		let (tx, mut rx) = mpsc::channel::<Vec<Data>>(1);
 
-		let callback: PluginCallback = {
-			let id = id.to_owned();
-			Box::new(move |lua, plugin| {
-				let Some(block) = runtime!(lua)?.get_block(&id, calls) else {
-					return Err("sync block not found".into_lua_err());
-				};
+		let id_ = id.to_owned();
+		let callback = move |lua: &Lua, plugin: Table| {
+			let Some(block) = runtime!(lua)?.get_block(&id_, calls) else {
+				return Err("sync block not found".into_lua_err());
+			};
 
-				let args = [Ok(Value::Table(plugin))]
-					.into_iter()
-					.chain(args.into_iter().map(|d| Sendable::data_to_value(lua, d)))
-					.collect::<mlua::Result<MultiValue>>()?;
+			let args = [Ok(Value::Table(plugin))]
+				.into_iter()
+				.chain(args.into_iter().map(|d| Sendable::data_to_value(lua, d)))
+				.collect::<mlua::Result<MultiValue>>()?;
 
-				let values = Sendable::values_to_list(lua, block.call(args)?)?;
-				tx.send(values).map_err(|_| "send failed".into_lua_err())
-			})
+			let values = Sendable::values_to_list(lua, block.call(args)?)?;
+			tx.try_send(values).map_err(|_| "send failed".into_lua_err())
 		};
 
 		AppProxy::plugin(PluginOpt::new_callback(id.to_owned(), callback));
 
-		rx.await.into_lua_err()
+		rx.recv().await.ok_or("recv failed").into_lua_err()
 	}
 }

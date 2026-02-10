@@ -15,6 +15,19 @@ macro_rules! runtime_mut {
 }
 
 #[macro_export]
+macro_rules! runtime_scope {
+	($lua:ident, $id:expr, $block:expr) => {{
+		let mut f = || {
+			let blocking = $crate::runtime_mut!($lua)?.critical_push($id, true);
+			let result = (|| $block)();
+			$crate::runtime_mut!($lua)?.critical_pop(blocking)?;
+			result
+		};
+		f()
+	}};
+}
+
+#[macro_export]
 macro_rules! deprecate {
 	($lua:ident, $tt:tt) => {{
 		static WARNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -51,6 +64,28 @@ macro_rules! cached_field {
 }
 
 #[macro_export]
+macro_rules! cached_field_mut {
+	($fields:ident, $key:ident, $value:expr) => {
+		$fields.add_field_function_get(stringify!($key), |lua, ud| {
+			use mlua::{Error::UserDataDestructed, IntoLua, Lua, Result, Value, Value::UserData};
+			ud.borrow_mut_scoped::<Self, Result<Value>>(|me| match paste::paste! { &me.[<v_ $key>] } {
+				Some(Ok(v)) if !v.is_userdata() => Ok(v.clone()),
+				Some(Ok(v @ UserData(ud))) if !matches!(ud.borrow::<()>(), Err(UserDataDestructed)) => {
+					Ok(v.clone())
+				}
+				Some(Err(e)) => Err(e.clone()),
+				_ => {
+					let v =
+						($value as fn(&Lua, &mut Self) -> Result<_>)(lua, me).and_then(|v| v.into_lua(lua));
+					paste::paste! { me.[<v_ $key>] = Some(v.clone()) };
+					v
+				}
+			})?
+		});
+	};
+}
+
+#[macro_export]
 macro_rules! impl_area_method {
 	($methods:ident) => {
 		$methods.add_function_mut(
@@ -71,8 +106,8 @@ macro_rules! impl_area_method {
 #[macro_export]
 macro_rules! impl_style_method {
 	($methods:ident, $($field:tt).+) => {
-		$methods.add_function_mut("style", |_, (ud, value): (mlua::AnyUserData, mlua::Value)| {
-			ud.borrow_mut::<Self>()?.$($field).+ = $crate::Style::try_from(value)?.0;
+		$methods.add_function_mut("style", |_, (ud, style): (mlua::AnyUserData, $crate::Style)| {
+			ud.borrow_mut::<Self>()?.$($field).+ = style.0;
 			Ok(ud)
 		});
 	};

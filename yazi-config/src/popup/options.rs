@@ -2,9 +2,9 @@ use ratatui::{text::{Line, Text}, widgets::{Paragraph, Wrap}};
 use yazi_shared::{scheme::Encode as EncodeScheme, strand::ToStrand, url::{Url, UrlBuf}};
 
 use super::{Offset, Position};
-use crate::YAZI;
+use crate::{YAZI, popup::Origin};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct InputCfg {
 	pub title:      String,
 	pub value:      String,
@@ -15,14 +15,14 @@ pub struct InputCfg {
 	pub completion: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PickCfg {
 	pub title:    String,
 	pub items:    Vec<String>,
 	pub position: Position,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ConfirmCfg {
 	pub position: Position,
 	pub title:    Line<'static>,
@@ -87,6 +87,19 @@ impl InputCfg {
 		Self {
 			title: YAZI.input.shell_title[block as usize].clone(),
 			position: Position::new(YAZI.input.shell_origin, YAZI.input.shell_offset),
+			..Default::default()
+		}
+	}
+
+	pub fn tab_rename() -> Self {
+		Self {
+			title: "Rename tab:".to_owned(),
+			position: Position::new(Origin::TopCenter, Offset {
+				x:      0,
+				y:      2,
+				width:  50,
+				height: 3,
+			}),
 			..Default::default()
 		}
 	}

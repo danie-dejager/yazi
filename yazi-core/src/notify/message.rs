@@ -1,14 +1,14 @@
 use std::time::{Duration, Instant};
 
 use unicode_width::UnicodeWidthStr;
-use yazi_parser::app::{NotifyLevel, NotifyOpt};
+use yazi_parser::notify::{PushLevel, PushOpt};
 
 use super::NOTIFY_BORDER;
 
 pub struct Message {
 	pub title:   String,
 	pub content: String,
-	pub level:   NotifyLevel,
+	pub level:   PushLevel,
 	pub timeout: Duration,
 
 	pub instant:   Instant,
@@ -16,8 +16,8 @@ pub struct Message {
 	pub max_width: usize,
 }
 
-impl From<NotifyOpt> for Message {
-	fn from(opt: NotifyOpt) -> Self {
+impl From<PushOpt> for Message {
+	fn from(opt: PushOpt) -> Self {
 		let title = opt.title.lines().next().unwrap_or_default();
 		let title_width = title.width() + (opt.level.icon().width() + /* Space */ 1);
 
@@ -40,7 +40,7 @@ impl Message {
 	pub fn height(&self, width: u16) -> usize {
 		let lines = ratatui::widgets::Paragraph::new(self.content.as_str())
 			.wrap(ratatui::widgets::Wrap { trim: false })
-			.line_count(width);
+			.line_count(width.saturating_sub(NOTIFY_BORDER));
 
 		lines + NOTIFY_BORDER as usize
 	}

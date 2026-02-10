@@ -1,12 +1,12 @@
 use anyhow::Result;
 use crossterm::event::{Event as CrosstermEvent, EventStream, KeyEvent, KeyEventKind};
 use futures::StreamExt;
-use tokio::{select, sync::{mpsc, oneshot}};
+use tokio::{select, sync::mpsc};
 use yazi_config::YAZI;
-use yazi_shared::event::Event;
+use yazi_shared::{CompletionToken, event::Event};
 
 pub(super) struct Signals {
-	tx: mpsc::UnboundedSender<(bool, Option<oneshot::Sender<()>>)>,
+	pub(super) tx: mpsc::UnboundedSender<(bool, CompletionToken)>,
 }
 
 impl Signals {
@@ -15,12 +15,6 @@ impl Signals {
 		Self::spawn(rx)?;
 
 		Ok(Self { tx })
-	}
-
-	pub(super) fn stop(&mut self, cb: Option<oneshot::Sender<()>>) { self.tx.send((false, cb)).ok(); }
-
-	pub(super) fn resume(&mut self, cb: Option<oneshot::Sender<()>>) {
-		self.tx.send((true, cb)).ok();
 	}
 
 	#[cfg(unix)]
@@ -32,7 +26,7 @@ impl Signals {
 		match n {
 			SIGINT => { /* ignored */ }
 			SIGQUIT | SIGHUP | SIGTERM => {
-				Event::Quit(Default::default()).emit();
+				AppProxy::quit(Default::default());
 				return false;
 			}
 			SIGTSTP => {
@@ -40,7 +34,7 @@ impl Signals {
 					AppProxy::stop().await;
 					if unsafe { libc::kill(0, SIGSTOP) } != 0 {
 						error!("Failed to stop the process:\n{}", std::io::Error::last_os_error());
-						Event::Quit(Default::default()).emit();
+						AppProxy::quit(Default::default());
 					}
 				});
 			}
@@ -71,7 +65,7 @@ impl Signals {
 		}
 	}
 
-	fn spawn(mut rx: mpsc::UnboundedReceiver<(bool, Option<oneshot::Sender<()>>)>) -> Result<()> {
+	fn spawn(mut rx: mpsc::UnboundedReceiver<(bool, CompletionToken)>) -> Result<()> {
 		#[cfg(unix)]
 		use libc::{SIGCONT, SIGHUP, SIGINT, SIGQUIT, SIGTERM, SIGTSTP};
 
@@ -96,9 +90,9 @@ impl Signals {
 				if let Some(t) = &mut term {
 					select! {
 						biased;
-						Some((state, mut callback)) = rx.recv() => {
+						Some((state, token)) = rx.recv() => {
 							term = term.filter(|_| state);
-							callback.take().map(|cb| cb.send(()));
+							token.complete(true);
 						},
 						Some(n) = sys.next() => if !Self::handle_sys(n) { return },
 						Some(Ok(e)) = t.next() => Self::handle_term(e)
@@ -106,9 +100,9 @@ impl Signals {
 				} else {
 					select! {
 						biased;
-						Some((state, mut callback)) = rx.recv() => {
+						Some((state, token)) = rx.recv() => {
 							term = state.then(EventStream::new);
-							callback.take().map(|cb| cb.send(()));
+							token.complete(true);
 						},
 						Some(n) = sys.next() => if !Self::handle_sys(n) { return },
 					}
