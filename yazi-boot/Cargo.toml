@@ -1,12 +1,13 @@
 [package]
-name        = "yazi-boot"
-version     = "26.2.2"
-edition     = "2024"
-license     = "MIT"
-authors     = [ "sxyazi <sxyazi@gmail.com>" ]
-description = "Yazi bootstrapper"
-homepage    = "https://yazi-rs.github.io"
-repository  = "https://github.com/sxyazi/yazi"
+name                   = "yazi-boot"
+description            = "Yazi bootstrapper"
+version.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+authors.workspace      = true
+homepage.workspace     = true
+repository.workspace   = true
+rust-version.workspace = true
 
 [lints]
 workspace = true
@@ -31,7 +32,7 @@ yazi-shared = { path = "../yazi-shared", version = "26.2.2" }
 
 # External dependencies
 clap                  = { workspace = true }
-clap_complete         = "4.5.65"
+clap_complete         = "4.5.66"
 clap_complete_fig     = "4.5.2"
 clap_complete_nushell = "4.5.10"
 vergen-gitcl          = { version = "9.1.0", features = [ "build", "rustc" ] }

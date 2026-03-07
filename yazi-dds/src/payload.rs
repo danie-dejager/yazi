@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use mlua::{IntoLua, Lua, Value};
 use yazi_boot::BOOT;
 use yazi_macro::{emit, relay};
-use yazi_shared::{Id, event::CmdCow};
+use yazi_shared::{Id, event::ActionCow};
 
 use crate::{ID, ember::Ember, spark::Spark};
 
@@ -46,10 +46,8 @@ impl<'a> Payload<'a> {
 }
 
 impl Payload<'static> {
-	pub(super) fn emit(self) -> Result<()> {
-		self.try_flush()?;
+	pub(super) fn emit(self) {
 		emit!(Call(relay!(app:accept_payload).with_any("payload", self)));
-		Ok(())
 	}
 }
 
@@ -88,11 +86,11 @@ impl<'a> TryFrom<Spark<'a>> for Payload<'a> {
 	}
 }
 
-impl TryFrom<CmdCow> for Payload<'_> {
+impl TryFrom<ActionCow> for Payload<'_> {
 	type Error = anyhow::Error;
 
-	fn try_from(mut c: CmdCow) -> Result<Self, Self::Error> {
-		c.take_any2("payload").ok_or_else(|| anyhow!("Missing 'payload' in Payload"))?
+	fn try_from(mut a: ActionCow) -> Result<Self, Self::Error> {
+		a.take_any2("payload").ok_or_else(|| anyhow!("Missing 'payload' in Payload"))?
 	}
 }
 
@@ -113,6 +111,7 @@ impl Display for Payload<'_> {
 			Ember::Move(b) => serde_json::to_string(b),
 			Ember::Trash(b) => serde_json::to_string(b),
 			Ember::Delete(b) => serde_json::to_string(b),
+			Ember::Download(b) => serde_json::to_string(b),
 			Ember::Mount(b) => serde_json::to_string(b),
 			Ember::Custom(b) => serde_json::to_string(b),
 		};

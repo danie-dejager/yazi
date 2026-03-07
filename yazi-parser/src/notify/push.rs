@@ -4,8 +4,9 @@ use anyhow::anyhow;
 use mlua::{FromLua, IntoLua, Lua, LuaSerdeExt, Value};
 use serde::{Deserialize, Serialize};
 use serde_with::{DurationSecondsWithFrac, serde_as};
+use yazi_binding::SER_OPT;
 use yazi_config::{Style, THEME};
-use yazi_shared::event::CmdCow;
+use yazi_shared::event::ActionCow;
 
 #[serde_as]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -18,11 +19,11 @@ pub struct PushOpt {
 	pub timeout: Duration,
 }
 
-impl TryFrom<CmdCow> for PushOpt {
+impl TryFrom<ActionCow> for PushOpt {
 	type Error = anyhow::Error;
 
-	fn try_from(mut c: CmdCow) -> Result<Self, Self::Error> {
-		c.take_any("opt").ok_or_else(|| anyhow!("Invalid 'opt' in NotifyOpt"))
+	fn try_from(mut a: ActionCow) -> Result<Self, Self::Error> {
+		a.take_any("opt").ok_or_else(|| anyhow!("Invalid 'opt' in NotifyOpt"))
 	}
 }
 
@@ -31,7 +32,7 @@ impl FromLua for PushOpt {
 }
 
 impl IntoLua for PushOpt {
-	fn into_lua(self, lua: &Lua) -> mlua::Result<Value> { lua.to_value(&self) }
+	fn into_lua(self, lua: &Lua) -> mlua::Result<Value> { lua.to_value_with(&self, SER_OPT) }
 }
 
 // --- Level

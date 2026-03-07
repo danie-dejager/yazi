@@ -14,23 +14,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
-- New `fs.access()` API to access the filesystem ([#3668])
-- Allow using `ps.sub()` in `init.lua` directly without a plugin ([#3638])
-- New `relay-notify-push` DDS event to allow custom notification handlers ([#3642])
 - Custom tab name ([#3666])
-- New `cx.which` API to access the which component state ([#3617])
+- New `--in` for `search` action to set search directory ([#3696])
+- Multi-file spotter ([#3733])
+- Certificate authentication for SFTP VFS provider ([#3716])
+- New `hovered` condition specifying different icons for hovered files ([#3728])
+- Allow using `ps.sub()` in `init.lua` directly without a plugin ([#3638])
+- New `sort_fallback` option to control fallback sorting behavior ([#3077])
+- New `fs.access()` API to access the filesystem ([#3668])
+- New `relay-notify-push` DDS event to customize the notification handler ([#3642])
+- New `ind-app-title` DDS event to customize the app title ([#3684])
+- New `marker_symbol` option to specify the symbol used for marking files ([#3689])
+- New `fs.unique()` creates a unique file or directory ([#3677])
+- New `download` DDS event fires when remote files are downloaded ([#3687])
 - New `ind-which-activate` DDS event to change the which component behavior ([#3608])
+- New `hey` DDS event fires when static messages are restored from persistence ([#3725])
+- New `cx.which` API to access the which component state ([#3617])
 
 ### Changed
 
 - Upgrade Lua to 5.5 ([#3633])
 - Change preset <kbd>t</kbd> for creating tabs to <kbd>t</kbd> ⇒ <kbd>t</kbd> to avoid conflict with new <kbd>t</kbd> ⇒ <kbd>r</kbd> for renaming tabs ([#3666])
+- Remove `title_format` in favor of new `ind-app-title` DDS event for flexible title customization ([#3684])
 - Remove `micro_workers` and `macro_workers` in favor of finer control over concurrent workers ([#3661])
+
+### Deprecated
+
+- Deprecate `fs.unique_name()` in favor of `fs.unique()` to fix a TOCTOU race condition ([#3677])
 
 ### Fixed
 
-- Archive extraction fails for target paths with non-ASCII characters on Windows ([#3607])
+- Chafa v1.18.1 causes random ghost keypresses when previewing images ([#3678])
+- Be a little defensive while parsing the output of `7zz -ba` ([#3744])
 - Make `ya pkg` ignore default remote name in user Git config ([#3648])
+- Archive extraction fails for target paths with non-ASCII characters on Windows ([#3607])
+- Escape backslashes in ImageMagick font path parameter ([#3708])
 
 ### Improved
 
@@ -81,11 +99,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - New experimental `ya.async()` API ([#3422])
 - New `overall` option to set the overall background color ([#3317])
 - Rounded corners for indicator bar ([#3419])
-- New `bulk_rename` command always renames files with the editor ([#2984])
+- New `bulk_rename` action always renames files with the editor ([#2984])
 - `key-*` DDS events to allow changing or canceling user key events ([#3005], [#3037])
 - New `--bg` specifying image background color in the preset SVG and ImageMagick previewers ([#3189])
 - `filter` by full path (prefix + filename) in search view instead of just filename ([#2915])
-- New `casefy` command for case conversion of the input content ([#3235])
+- New `casefy` action for case conversion of the input content ([#3235])
 - Allow dynamic adjustment of layout ratio via `rt.mgr.ratio` ([#2964])
 - Support `.deb` packages ([#2807], [#3128], [#3209])
 - Port several widespread GUI keys to the input component ([#2849])
@@ -106,7 +124,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Rename `name` to `url` for open, fetchers, spotters, preloaders, previewers, filetype, and `globs` icon rules to support virtual file system ([#3034])
 - Rename `mime` fetcher to `mime.local`, and introduce `mime.dir` fetcher to support folder MIME types ([#3222])
 - Reclassify `hovered` and `preview_hovered` under `[mgr]` of `theme.toml` into `[indicator]` as `current` and `preview`, respectively ([#3419])
-- Remove `$0` parameter in opener rules to make the `open` command work under empty directories ([#3226])
+- Remove `$0` parameter in opener rules to make the `open` action work under empty directories ([#3226])
 - Return `Path` instead of `Url` from `Url:strip_prefix()` and `File.link_to` to enforce type safety ([#3361], [#3385])
 - Use `body` instead of the term `content` in confirmations ([#2921])
 - Use `u16` instead of `u32` as the type of `max_width` and `max_height` options to avoid memory exhaustion ([#3313])
@@ -114,7 +132,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Deprecated
 
-- Deprecate `$n`, `$@` (\*nix) and `%n`, `%*` (Windows) in `shell` command and opener rules in favor of new shell formatting ([#3232])
+- Deprecate `$n`, `$@` (\*nix) and `%n`, `%*` (Windows) in `shell` action and opener rules in favor of new shell formatting ([#3232])
 - Deprecate `ya.hide`, `ya.render`, and `ya.truncate` in favor of `ui.hide`, `ui.render`, and `ui.truncate` ([#2939])
 - Deprecate `position` property of `ya.input()` in favor of `pos` to align with `ya.confirm()` and its type `ui.Pos` ([#2921])
 - Deprecate `cx.tasks.progress` in favor of `cx.tasks.summary` ([#3131])
@@ -125,7 +143,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - User-prepended open rules do not override presets ([#3360])
 - Respect user's system media opener instead of hardcoding `mpv` ([#2959])
-- Incorrect `$0` and `$@` parameters in `shell` command under empty directories ([#3225])
+- Incorrect `$0` and `$@` parameters in `shell` action under empty directories ([#3225])
 - Avoid appending a newline when reading clipboard contents ([#3059])
 - Renew package `rev` only when it's empty ([#3200])
 - Suspend only when there is a parent process ([#3008])
@@ -179,15 +197,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - New `ya.emit()` API ([#2653])
 - New `fs.calc_size()` API ([#2691])
 - Allow custom exit code with `quit --code` ([#2609])
-- New `--hovered` for the `copy` command ([#2709])
+- New `--hovered` for the `copy` action ([#2709])
 - `s` and `S` keybinds in the input component ([#2678])
 - Limit memory usage for previewing large images ([#2602])
 - Show error when image preview fails ([#2706])
 - New `ui.Align`, `ui.Wrap`, and `ui.Edge` ([#2802])
 - Make `ui.Line` renderable ([#2743])
 - Checks in `ya pub` and `ya emit` subcommands to verify receiver exists and has necessary abilities ([#2696])
-- Make the hover state for `reveal`, `sort`, and `hidden` commands stable ([#2657])
-- New `--no-dummy` option for `reveal` command ([#2664])
+- Make the hover state for `reveal`, `sort`, and `hidden` actions stable ([#2657])
+- New `--no-dummy` option for `reveal` action ([#2664])
 - Fall back to `CSI 16 t` when PowerShell OpenSSH returns a fake terminal size ([#2636])
 
 ### Changed
@@ -231,7 +249,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Enhance `fzf` integration ([#2553])
 - Platform-specific key binding ([#2526])
 - Custom search engine Lua API ([#2452])
-- New `follow` command to follow files pointed to by symlinks ([#2543])
+- New `follow` action to follow files pointed to by symlinks ([#2543])
 - Allow `tab_swap` to cycle tabs ([#2456])
 - Show error message when directory fails to load ([#2527])
 - New `symlink_target` to style the target of symbolic links ([#2522])
@@ -239,7 +257,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - New `<C-A>` and `<C-E>` keybindings to select entire line for the input component ([#2439])
 - New `fs.expand_url()` API ([#2476])
 - New `ui.Text:scroll()` API for setting text to scroll horizontally or vertically ([#2589])
-- Allow initializing input when opening it with commands like `rename`, `create`, `find`, `filter`, etc. ([#2578])
+- Allow initializing input when opening it with actions like `rename`, `create`, `find`, `filter`, etc. ([#2578])
 - New `@sync peek` annotation for sync previewers ([#2487])
 - New `ya.id("app")` to get `YAZI_ID` in plugins ([#2503])
 - New `base` field for the `Url` ([#2492])
@@ -249,7 +267,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Changed
 
-- Navigation wraparound with new `arrow prev` and `arrow next` commands ([#2485], [#2540])
+- Navigation wraparound with new `arrow prev` and `arrow next` actions ([#2485], [#2540])
 - Swap default key bindings for fzf and zoxide ([#2546])
 - Switch to `resvg` as the SVG renderer ([#2581])
 - Make `frag`, `name`, `stem`, `ext`, and `parent` on `Url`, `name` on `tab::Tab`, and `is_hovered` on `fs::File` properties ([#2572])
@@ -291,11 +309,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
-- Allow to specify layer for keymap commands ([#2399])
+- Allow to specify layer for keymap actions ([#2399])
 - New `rt` and `th` allow to access user configuration and theme scheme in sync/async plugins consistently ([#2389], [#2392], [#2393], [#2397])
 - New `tbl_col` and `tbl_cell` in theme system for spotter table styling ([#2391])
 - Allow different separators to be applied individually to the left and right sides of the status bar ([#2313])
-- `ripgrep-all` support for the `search` command ([#2383])
+- `ripgrep-all` support for the `search` action ([#2383])
 - Respect the user's `max_width` setting in the preset PDF preloader ([#2331])
 - Respect the user's `wrap` setting in the preset JSON previewer ([#2337])
 - Respect the user's `image_alloc` setting in the preset ImageMagick previewer ([#2403])
@@ -336,15 +354,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - Mount manager ([#2199])
 - New `ya.confirm()` API ([#2095])
-- New `arrow top` and `arrow bot` commands to jump to the top and bottom ([#2294])
-- Support end of options (`--`) marker for all commands ([#2298])
+- New `arrow top` and `arrow bot` actions to jump to the top and bottom ([#2294])
+- Support end of options (`--`) marker for all actions ([#2298])
 - Replace mode and Vim motions (`W`, `E`, `B`, `^`, `_`) for inputs ([#2143])
 - New `ya pack -d` subcommand to delete packages ([#2181])
 - `ya pack` supports adding and deleting multiple packages at once ([#2257])
 - Theme support for the spotter border and title ([#2002])
-- Use positional argument instead of `--args` for the `plugin` command ([#2299])
+- Use positional argument instead of `--args` for the `plugin` action ([#2299])
 - Support and hide Windows system files by default ([#2149])
-- New `--no-cwd-file` option for the `close` command ([#2185])
+- New `--no-cwd-file` option for the `close` action ([#2185])
 - Prompt users missing fzf in the zoxide plugin ([#2122])
 - More decent package locking mechanism ([#2168])
 - Custom modal component API ([#2205])
@@ -360,7 +378,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Deprecated
 
-- Deprecate `--args` in the `plugin` command in favor of a 2nd positional parameter ([#2299])
+- Deprecate `--args` in the `plugin` action in favor of a 2nd positional parameter ([#2299])
 - Deprecate plugin entry file `init.lua` in favor of `main.lua` ([#2168])
 - Deprecate `arrow -99999999` and `arrow 99999999` in favor of `arrow top` and `arrow bot` ([#2294])
 - Deprecate the numeric return value of preloaders in favor of a boolean return value ([#2253])
@@ -387,7 +405,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - More supported archive formats to the preset config ([#1926])
 - New `fs.create()` Lua API ([#2068])
-- New `--cwd` parameter for the `shell` command and `fs.cwd()` API ([#2060])
+- New `--cwd` parameter for the `shell` action and `fs.cwd()` API ([#2060])
 - Allow `noop` for single-key chords by removing the mixing length limit ([#2064])
 - Support for Android platform in the `for` qualifier of opener ([#2041])
 
@@ -416,8 +434,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Spotter ([#1802])
 - Support transparent image preview ([#1556])
 - Auto switch between dark and light icons/flavors based on terminal backgrounds ([#1946])
-- Allow disabling certain preset keybinds with the new `noop` virtual command ([#1882])
-- New `ya emit` and `ya emit-to` subcommands to emit commands to a specified instance for execution ([#1979])
+- Allow disabling certain preset keybinds with the new `noop` virtual action ([#1882])
+- New `ya emit` and `ya emit-to` subcommands to emit actions to a specified instance for execution ([#1979])
 - Custom styles for the `confirm` component ([#1789])
 - Make the builtin `extract` plugin support compressed tarballs (`*.tar.gz`, `*.tar.bz2`, etc.) ([#1583])
 - Launch from preset settings if the user's config cannot be parsed ([#1832])
@@ -451,15 +469,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Use an `Error` userdata instead of a plain error code for I/O errors ([#1939])
 - Remove `ui.ListItem` since it's no longer necessary ([#1772])
 - Decouple coordinates from `ui.List`, `ui.Bar`, `ui.Border`, and `ui.Gauge` ([#1782])
-- Make `backspace` command not close the input even when value is empty ([#1680])
-- Remove the meaningless `--confirm` option to simplify the `shell` command ([#1982])
+- Make `backspace` action not close the input even when value is empty ([#1680])
+- Remove the meaningless `--confirm` option to simplify the `shell` action ([#1982])
 - Use `dark` and `light` instead of `use` under `[flavor]` to support auto-switching between light and dark modes ([#1946])
 - Unify the `fg_dark` and `fg_light` into one `fg` since `fg_light` is redundant and never used ([#1946])
 - Extend the available styles for `mode` by separating `mode` from the `separator` styles ([#1953])
 
 ### Deprecated
 
-- Deprecate `--sync` option for the `plugin` command ([#1891])
+- Deprecate `--sync` option for the `plugin` action ([#1891])
 - Deprecate `ui.Paragraph` in favor of `ui.Text` ([#1776])
 - Deprecate the task info of `peek()`, `seek()`, and `preload()` from `self` in favor of a `job` parameter ([#1966])
 - Deprecate parameter list of `entry()` from its first argument in favor of a `job` parameter ([#1966])
@@ -516,7 +534,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - New confirm component ([#1167])
 - Word wrapping in `code` previewer ([#1159])
-- New `--dir` option for `create` command ([#1505])
+- New `--dir` option for `create` action ([#1505])
 - New `ext()` method for `Url` ([#1528])
 - Make the builtin `code` previewer handle invalid carriage return chars and binary streams better ([#1550])
 
@@ -539,10 +557,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Start with multiple tabs with different paths ([#1443])
 - Key notion shorthands such as `<C-S-x>` as `<C-X>` ([#1448])
 - Support `F13` - `F19` keys ([#1446])
-- New `--cursor` for the `shell` command ([#1422])
-- New `search_do` command to make it easier to achieve a flat view ([#1431])
+- New `--cursor` for the `shell` action ([#1422])
+- New `search_do` action to make it easier to achieve a flat view ([#1431])
 - Portrait orientation preview for EXIF image ([#1412])
-- Keybinding for the `hardlink` command ([#1461])
+- Keybinding for the `hardlink` action ([#1461])
 - New `empty` previewer for empty and `/proc/*` files ([#1482])
 - Note about filtering in the help menu ([#1361])
 - New `tab` DDS event on tab switch ([#1474])
@@ -570,12 +588,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Font preview ([#1048])
 - SVG, HEIC, AVIF, and JPEG XL preview support ([#1050], [#1249])
 - Simplify keybindings ([#1241])
-- New command `hardlink` to create hard links ([#1268])
+- New `hardlink` action to create hard links ([#1268])
 - Keep file creation time on macOS and Windows ([#1169])
 - Sort randomly ([#1291])
 - New linemode to show file ownership ([#1238])
 - New linemode to show file ctime ([#1295])
-- New `--hovered` option for the `rename` and `remove` commands ([#1227])
+- New `--hovered` option for the `rename` and `remove` actions ([#1227])
 - Support Super/Command/Windows key with `D-` notation ([#1069])
 - Interactive `cd` path auto-completion supports `~` expansion ([#1081])
 - Preview files containing non-UTF-8 characters ([#958])
@@ -600,7 +618,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Use Ctrl+c instead of Ctrl+q as the universal close key to follow the conventions
 - Replace Alt+k/Alt+j with K/J as the `seek` keybindings to avoid Alt key not working in certain terminals
 - Replace Ctrl+Enter with Shift+Enter as the alternative key for Shift+o so that it corresponds to Enter being `o` (without Shift)
-- keep original state of `sort` command in favor of specifying `yes` or `no` to explicitly apply a new state to its `--reverse`, `--dir-first`, and `--translit`
+- keep original state of `sort` action in favor of specifying `yes` or `no` to explicitly apply a new state to its `--reverse`, `--dir-first`, and `--translit`
 - Move `mime` plugin from `[plugin.preloaders]` to `[plugin.fetchers]` of yazi.toml
 - Turn `success` and `code` into properties of `Status` instead of methods
 - Remove `fs.cha_follow(url)` in favor of `fs.cha(url, true)`
@@ -627,7 +645,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Data distribution service ([#826], [#855], [#861], [#867], [#868], [#871], [#880], [#895], [#913], [#928], [#933], [#940])
 - Re-implement fzf and zoxide as built-in plugins ([#884], [#881])
 - Preserve files' modified at timestamp while copying ([#926])
-- New `--orphan` option for `shell` command ([#887])
+- New `--orphan` option for `shell` action ([#887])
 - Smart-case for completion of interactive `cd` paths ([#910])
 - Allow creating a tab with the startup directory through `tab_create` without specifying a path ([#917])
 - Bunch of new debugging information to `yazi --debug` ([#824])
@@ -640,7 +658,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Deprecated
 
-- Deprecate the `jump` command in favor of `plugin fzf` and `plugin zoxide` ([#884], [#881])
+- Deprecate the `jump` action in favor of `plugin fzf` and `plugin zoxide` ([#884], [#881])
 
 ### Fixed
 
@@ -672,7 +690,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - New `<Home>`, `<End>`, and `<Delete>` keybindings for inputs ([#665])
 - New `<C-p>` and `<C-n>` for the select component to move the cursor up/down ([#779])
 - New `Ctrl+[` as an alternative to the escape key ([#763])
-- New option `--hovered` for the `open` command allows only to open the currently hovered file ([#687])
+- New option `--hovered` for the `open` action allows only to open the currently hovered file ([#687])
 - Support musl builds for Linux ([#759])
 - New `--debug` flag to print debug information ([#794])
 - Send a foreground notification to the user when the process fails to run ([#775])
@@ -683,7 +701,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Ability to sort candidates in the which component ([#662])
 - Expose selected/yanked files as Lua API ([#674])
 - New `cx.yanked` API to access yanked files ([#788])
-- New `$0` (Unix) / `%0` (Windows) to access the hovered file in `shell` command ([#738])
+- New `$0` (Unix) / `%0` (Windows) to access the hovered file in `shell` action ([#738])
 - New `ya.hide()` API to hide the UI temporarily ([#792])
 - Allow both `/` and `\` for folder creation on Windows ([#751])
 - New `parse()` method for the line elements to parse ANSI sequences
@@ -710,13 +728,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Added
 
 - Preview image over SSH ([#585])
-- New `unyank` command ([#313])
+- New `unyank` action ([#313])
 - Customize number of columns of the which component ([#571])
 - Support passing arguments to plugin ([#587])
 - New `image_quality` and `sixel_fraction` options to configure the image preview quality ([#576])
 - New `ya.which()` API for custom key events ([#617])
 - New `ya.quote()` API to quote strings safely
-- `plugin` command for each layer
+- `plugin` action for each layer
 - Plugin-specific state persistence ([#590])
 - Allow to configure image filter ([#586])
 - Shorten unit names and add more units to `ya.readable_size()`
@@ -754,7 +772,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Improved
 
-- New event system allows multiple commands to reuse a single render ([#561])
+- New event system allows multiple actions to reuse a single render ([#561])
 
 ## [v0.2.1]
 
@@ -766,17 +784,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
-- New `filter` command to filter files on the fly ([#454])
+- New `filter` action to filter files on the fly ([#454])
 - Sort by file extension ([#405])
 - Custom preloader and previewer ([#401])
-- New `plugin` command to run Lua plugins
+- New `plugin` action to run Lua plugins
 - Auto-completion for input component ([#324], [#353], [#352])
 - Start with the specified file hovers over ([#358])
 - Emacs readline keybindings for inputs ([#345], [#382])
-- New `--empty` and `--cursor` options for the `rename` command ([#513])
-- New `--follow` option for `paste` command ([#436])
-- Make `copy` command work over SSH with OSC 52 ([#447])
-- New `reveal` command ([#341])
+- New `--empty` and `--cursor` options for the `rename` action ([#513])
+- New `--follow` option for `paste` action ([#436])
+- Make `copy` action work over SSH with OSC 52 ([#447])
+- New `reveal` action ([#341])
 - Support colored icons ([#503])
 - Support highlighting specific file types ([#510])
 - Make the position of input and select components customizable ([#361])
@@ -798,8 +816,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Changed
 
 - Rename the option `layout` to `ratio` to make it more self-explanatory
-- Rename the `peek` command to `seek` to better convey the action of "seeking for" content to preview
-- Rename the `--dir_first` option of `sort` command to `--dir-first` to make it consistent with the style of other commands
+- Rename the `peek` action to `seek` to better convey the action of "seeking for" content to preview
+- Rename the `--dir_first` option of `sort` action to `--dir-first` to make it consistent with the style of other actions
 - Replace `[plugins.preload]` with the `init.lua` entry file
 
 ### Fixed
@@ -824,22 +842,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
-- New `find` command to find files ([#104])
+- New `find` action to find files ([#104])
 - Linemode to show extra file info ([#291])
 - New `sort_sensitive` option ([#155])
 - Cross-platform opener rules ([#289])
 - Multiple openers for a single open rule ([#154])
 - Vim-like `gg`, `G` in the preset key mappings for boundary jumps
 - Theme system ([#161])
-- New `--force` option for `remove`, `create`, `rename` commands ([#179], [#208])
+- New `--force` option for `remove`, `create`, `rename` actions ([#179], [#208])
 - Image preview within tmux ([#147])
-- New `link` command that creates symlinks to the yanked files ([#167])
+- New `link` action creates symlinks to the yanked files ([#167])
 - New `orphan` option for opener rules to detach processes from the task scheduler ([#216])
-- New `backward` and `forward` commands
-- New `--smart` option for the `find` command to support smart case ([#240])
+- New `backward` and `forward` actions
+- New `--smart` option for the `find` action to support smart case ([#240])
 - Sorting for each tab individually ([#131])
 - Suspend process with `Ctrl+z` ([#120])
-- Percentage values for the `arrow` command to scroll half/full page (with newly added Vi-like `<C-u>`, `<C-d>`, `<C-b>`, and `<C-f>` keybindings) ([#213])
+- Percentage values for the `arrow` action to scroll half/full page (with newly added Vi-like `<C-u>`, `<C-d>`, `<C-b>`, and `<C-f>` keybindings) ([#213])
 - Show keywords when in search mode ([#152])
 - Tab switch wraparound ([#160])
 - Highlight matched keywords in find mode ([#211])
@@ -848,7 +866,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Use of environment variables in `cd` paths ([#241])
 - Nix Flakes package ([#205])
 - New `V`, `D`, `C` Vim-like keybindings for the input component
-- New `--no-cwd-file` option for the `quit` command to exit without writing the CWD file ([#245])
+- New `--no-cwd-file` option for the `quit` action to exit without writing the CWD file ([#245])
 - Fallback to built-in code highlighting if `jq` is not installed ([#151])
 - New `realtime` option for the input to support real-time input feedback ([#127])
 - RGBA-16 image preview ([#250])
@@ -885,7 +903,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Scrollable preview ([#86])
 - Natural sorting ([#82])
 - Windows support
-- New `copy` command to copy file paths to clipboard ([#72])
+- New `copy` action to copy file paths to clipboard ([#72])
 - File chooser mode ([#69])
 - Show symlink path ([#67])
 - Respect `$EDITOR` environment variable when opening text files ([#91])
@@ -918,8 +936,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Code highlighting supports more languages ([#22])
 - Change the shell CWD on exit with the shell wrapper ([#40])
 - Allow customizing the display name of openers ([#31])
-- New `shell` command ([#24])
-- Command template support for the `shell` command ([#48])
+- New `shell` action ([#24])
+- Command template support for the `shell` action ([#48])
 - Interactive `cd` ([#43])
 - Show the output of running tasks in real time ([#17])
 - Allow using the current directory name as tab name ([#41])
@@ -934,7 +952,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - PDF cache cannot be generated with a large `max_width` value ([#28])
 - `show_hidden` option not working ([#47])
-- Wrong task name when `shell` command has no arguments
+- Wrong task name when `shell` action has no arguments
 
 ### Improved
 
@@ -947,7 +965,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
-- New `sort` command to change sorting method on the fly ([#7])
+- New `sort` action to change sorting method on the fly ([#7])
 - Which-key component to support multi-key chords ([#4])
 - Hover the cursor over newly created files automatically ([#10])
 - Make folders openable ([#9])
@@ -968,8 +986,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Arrow keys are now bound for navigation by default (along with existing Vim-style bindings)
 - Horizontal scrolling support for the `input` component
 - Visual mode for the input component
-- New `yank` and `paste` commands for the input component
-- New `undo` and `redo` commands for the `input` component
+- New `yank` and `paste` actions for the input component
+- New `undo` and `redo` actions for the `input` component
 
 ### Fixed
 
@@ -984,7 +1002,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Added
 
 - Preset configurations
-- New `open` command
+- New `open` action
 - Select component for interactive `open`
 - Plain text and archive preview
 - Search files with `fd` and `rg`
@@ -1569,6 +1587,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3038]: https://github.com/sxyazi/yazi/pull/3038
 [#3059]: https://github.com/sxyazi/yazi/pull/3059
 [#3067]: https://github.com/sxyazi/yazi/pull/3067
+[#3077]: https://github.com/sxyazi/yazi/pull/3077
 [#3083]: https://github.com/sxyazi/yazi/pull/3083
 [#3084]: https://github.com/sxyazi/yazi/pull/3084
 [#3091]: https://github.com/sxyazi/yazi/pull/3091
@@ -1647,3 +1666,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3661]: https://github.com/sxyazi/yazi/pull/3661
 [#3666]: https://github.com/sxyazi/yazi/pull/3666
 [#3668]: https://github.com/sxyazi/yazi/pull/3668
+[#3677]: https://github.com/sxyazi/yazi/pull/3677
+[#3678]: https://github.com/sxyazi/yazi/pull/3678
+[#3684]: https://github.com/sxyazi/yazi/pull/3684
+[#3687]: https://github.com/sxyazi/yazi/pull/3687
+[#3689]: https://github.com/sxyazi/yazi/pull/3689
+[#3696]: https://github.com/sxyazi/yazi/pull/3696
+[#3708]: https://github.com/sxyazi/yazi/pull/3708
+[#3716]: https://github.com/sxyazi/yazi/pull/3716
+[#3725]: https://github.com/sxyazi/yazi/pull/3725
+[#3728]: https://github.com/sxyazi/yazi/pull/3728
+[#3733]: https://github.com/sxyazi/yazi/pull/3733
+[#3744]: https://github.com/sxyazi/yazi/pull/3744

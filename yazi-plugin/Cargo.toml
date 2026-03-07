@@ -1,12 +1,13 @@
 [package]
-name        = "yazi-plugin"
-version     = "26.2.2"
-edition     = "2024"
-license     = "MIT"
-authors     = [ "sxyazi <sxyazi@gmail.com>" ]
-description = "Yazi plugin system"
-homepage    = "https://yazi-rs.github.io"
-repository  = "https://github.com/sxyazi/yazi"
+name                   = "yazi-plugin"
+description            = "Yazi plugin system"
+version.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+authors.workspace      = true
+homepage.workspace     = true
+repository.workspace   = true
+rust-version.workspace = true
 
 [lints]
 workspace = true
@@ -28,10 +29,12 @@ yazi-parser   = { path = "../yazi-parser", version = "26.2.2" }
 yazi-proxy    = { path = "../yazi-proxy", version = "26.2.2" }
 yazi-shared   = { path = "../yazi-shared", version = "26.2.2" }
 yazi-shim     = { path = "../yazi-shim", version = "26.2.2" }
+yazi-term     = { path = "../yazi-term", version = "26.2.2" }
 yazi-vfs      = { path = "../yazi-vfs", version = "26.2.2" }
 yazi-widgets  = { path = "../yazi-widgets", version = "26.2.2" }
 
 # External dependencies
+ansi-to-tui   = { workspace = true }
 anyhow        = { workspace = true }
 futures       = { workspace = true }
 hashbrown     = { workspace = true }

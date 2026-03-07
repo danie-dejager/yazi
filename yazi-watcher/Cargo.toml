@@ -1,12 +1,13 @@
 [package]
-name        = "yazi-watcher"
-version     = "26.2.2"
-edition     = "2024"
-license     = "MIT"
-authors     = [ "sxyazi <sxyazi@gmail.com>" ]
-description = "Yazi file watcher"
-homepage    = "https://yazi-rs.github.io"
-repository  = "https://github.com/sxyazi/yazi"
+name                   = "yazi-watcher"
+description            = "Yazi file watcher"
+version.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+authors.workspace      = true
+homepage.workspace     = true
+repository.workspace   = true
+rust-version.workspace = true
 
 [lints]
 workspace = true
@@ -21,7 +22,7 @@ yazi-shared  = { path = "../yazi-shared", version = "26.2.2" }
 yazi-vfs     = { path = "../yazi-vfs", version = "26.2.2" }
 
 # External dependencies
-anyhow           = { workspace = true }
+futures          = { workspace = true }
 hashbrown        = { workspace = true }
 notify           = { version = "8.2.0", default-features = false, features = [ "macos_fsevent" ] }
 parking_lot      = { workspace = true }

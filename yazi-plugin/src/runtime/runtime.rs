@@ -1,5 +1,5 @@
 use mlua::{IntoLua, Lua, LuaSerdeExt, Value};
-use yazi_binding::{Composer, ComposerGet, ComposerSet, SER_OPT, Url};
+use yazi_binding::{Composer, ComposerGet, ComposerSet, SER_OPT, Url, elements::Wrap};
 use yazi_boot::ARGS;
 use yazi_config::YAZI;
 
@@ -48,13 +48,13 @@ fn mgr() -> Composer<ComposerGet, ComposerSet> {
 			b"sort_reverse" => m.sort_reverse.get().into_lua(lua)?,
 			b"sort_dir_first" => m.sort_dir_first.get().into_lua(lua)?,
 			b"sort_translit" => m.sort_translit.get().into_lua(lua)?,
+			b"sort_fallback" => lua.to_value_with(&m.sort_fallback, SER_OPT)?,
 
 			b"linemode" => lua.create_string(&m.linemode)?.into_lua(lua)?,
 			b"show_hidden" => m.show_hidden.get().into_lua(lua)?,
 			b"show_symlink" => m.show_symlink.get().into_lua(lua)?,
 			b"scrolloff" => m.scrolloff.get().into_lua(lua)?,
 			b"mouse_events" => lua.to_value_with(&m.mouse_events, SER_OPT)?,
-			b"title_format" => lua.create_string(&m.title_format)?.into_lua(lua)?,
 			_ => return Ok(Value::Nil),
 		}
 		.into_lua(lua)
@@ -78,7 +78,7 @@ fn preview() -> Composer<ComposerGet, ComposerSet> {
 	fn get(lua: &Lua, key: &[u8]) -> mlua::Result<Value> {
 		let p = &YAZI.preview;
 		match key {
-			b"wrap" => lua.to_value_with(&p.wrap, SER_OPT)?,
+			b"wrap" => Wrap::from(p.wrap).into_lua(lua)?,
 			b"tab_size" => p.tab_size.into_lua(lua)?,
 			b"max_width" => p.max_width.into_lua(lua)?,
 			b"max_height" => p.max_height.into_lua(lua)?,
