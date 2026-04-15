@@ -1,7 +1,8 @@
 use anyhow::{Result, bail};
+use yazi_core::mgr::CdSource;
 use yazi_fs::FilesOp;
 use yazi_macro::{act, succ};
-use yazi_parser::mgr::{CdSource, DisplaceDoOpt};
+use yazi_parser::mgr::DisplaceDoForm;
 use yazi_shared::{data::Data, url::UrlLike};
 
 use crate::{Actor, Ctx};
@@ -9,11 +10,11 @@ use crate::{Actor, Ctx};
 pub struct DisplaceDo;
 
 impl Actor for DisplaceDo {
-	type Options = DisplaceDoOpt;
+	type Form = DisplaceDoForm;
 
 	const NAME: &str = "displace_do";
 
-	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
+	fn act(cx: &mut Ctx, Self::Form { opt }: Self::Form) -> Result<Data> {
 		if cx.cwd() != opt.from {
 			succ!()
 		}

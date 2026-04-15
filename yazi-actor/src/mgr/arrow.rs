@@ -1,6 +1,6 @@
 use anyhow::Result;
 use yazi_macro::{act, render, succ};
-use yazi_parser::ArrowOpt;
+use yazi_parser::ArrowForm;
 use yazi_shared::data::Data;
 
 use crate::{Actor, Ctx};
@@ -8,15 +8,18 @@ use crate::{Actor, Ctx};
 pub struct Arrow;
 
 impl Actor for Arrow {
-	type Options = ArrowOpt;
+	type Form = ArrowForm;
 
 	const NAME: &str = "arrow";
 
-	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
+	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
 		let tab = cx.tab_mut();
-		if !tab.current.arrow(opt.step) {
+		if !tab.current.arrow(form.step) {
 			succ!();
 		}
+
+		// Retrace
+		tab.current.retrace();
 
 		// Visual selection
 		if let Some((start, items)) = tab.mode.visual_mut() {
@@ -28,6 +31,7 @@ impl Actor for Arrow {
 		act!(mgr:peek, cx)?;
 		act!(mgr:watch, cx)?;
 
+		cx.tasks.scheduler.behavior.reset();
 		succ!(render!());
 	}
 }

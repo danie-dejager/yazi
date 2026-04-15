@@ -1,8 +1,10 @@
-use std::{mem, path::PathBuf};
+use std::{borrow::Cow, mem, path::PathBuf};
 
 use tokio::sync::mpsc;
 use yazi_fs::cha::Cha;
-use yazi_shared::{CompletionToken, Id, url::UrlBuf};
+use yazi_shared::{Id, url::{UrlBuf, UrlLike}};
+
+use crate::{TaskIn, file::{FileProgCopy, FileProgCut, FileProgDelete, FileProgDownload, FileProgHardlink, FileProgLink, FileProgTrash, FileProgUpload}};
 
 #[derive(Debug)]
 pub(crate) enum FileIn {
@@ -24,6 +26,74 @@ pub(crate) enum FileIn {
 	UploadDo(FileInUpload),
 }
 
+impl TaskIn for FileIn {
+	type Prog = ();
+
+	fn id(&self) -> Id {
+		match self {
+			Self::Copy(r#in) => r#in.id(),
+			Self::CopyDo(r#in) => r#in.id(),
+			Self::Cut(r#in) => r#in.id(),
+			Self::CutDo(r#in) => r#in.id(),
+			Self::Link(r#in) => r#in.id(),
+			Self::LinkDo(r#in) => r#in.id(),
+			Self::Hardlink(r#in) => r#in.id(),
+			Self::HardlinkDo(r#in) => r#in.id(),
+			Self::Delete(r#in) => r#in.id(),
+			Self::DeleteDo(r#in) => r#in.id(),
+			Self::Trash(r#in) => r#in.id(),
+			Self::TrashDo(r#in) => r#in.id(),
+			Self::Download(r#in) => r#in.id(),
+			Self::DownloadDo(r#in) => r#in.id(),
+			Self::Upload(r#in) => r#in.id(),
+			Self::UploadDo(r#in) => r#in.id(),
+		}
+	}
+
+	fn set_id(&mut self, id: Id) -> &mut Self {
+		match self {
+			Self::Copy(r#in) => _ = r#in.set_id(id),
+			Self::CopyDo(r#in) => _ = r#in.set_id(id),
+			Self::Cut(r#in) => _ = r#in.set_id(id),
+			Self::CutDo(r#in) => _ = r#in.set_id(id),
+			Self::Link(r#in) => _ = r#in.set_id(id),
+			Self::LinkDo(r#in) => _ = r#in.set_id(id),
+			Self::Hardlink(r#in) => _ = r#in.set_id(id),
+			Self::HardlinkDo(r#in) => _ = r#in.set_id(id),
+			Self::Delete(r#in) => _ = r#in.set_id(id),
+			Self::DeleteDo(r#in) => _ = r#in.set_id(id),
+			Self::Trash(r#in) => _ = r#in.set_id(id),
+			Self::TrashDo(r#in) => _ = r#in.set_id(id),
+			Self::Download(r#in) => _ = r#in.set_id(id),
+			Self::DownloadDo(r#in) => _ = r#in.set_id(id),
+			Self::Upload(r#in) => _ = r#in.set_id(id),
+			Self::UploadDo(r#in) => _ = r#in.set_id(id),
+		}
+		self
+	}
+
+	fn title(&self) -> Cow<'_, str> {
+		match self {
+			Self::Copy(r#in) => r#in.title(),
+			Self::CopyDo(r#in) => r#in.title(),
+			Self::Cut(r#in) => r#in.title(),
+			Self::CutDo(r#in) => r#in.title(),
+			Self::Link(r#in) => r#in.title(),
+			Self::LinkDo(r#in) => r#in.title(),
+			Self::Hardlink(r#in) => r#in.title(),
+			Self::HardlinkDo(r#in) => r#in.title(),
+			Self::Delete(r#in) => r#in.title(),
+			Self::DeleteDo(r#in) => r#in.title(),
+			Self::Trash(r#in) => r#in.title(),
+			Self::TrashDo(r#in) => r#in.title(),
+			Self::Download(r#in) => r#in.title(),
+			Self::DownloadDo(r#in) => r#in.title(),
+			Self::Upload(r#in) => r#in.title(),
+			Self::UploadDo(r#in) => r#in.title(),
+		}
+	}
+}
+
 impl_from_in! {
 	Copy(FileInCopy),
 	Cut(FileInCut),
@@ -36,27 +106,6 @@ impl_from_in! {
 }
 
 impl FileIn {
-	pub(crate) fn id(&self) -> Id {
-		match self {
-			Self::Copy(r#in) => r#in.id,
-			Self::CopyDo(r#in) => r#in.id,
-			Self::Cut(r#in) => r#in.id,
-			Self::CutDo(r#in) => r#in.id,
-			Self::Link(r#in) => r#in.id,
-			Self::LinkDo(r#in) => r#in.id,
-			Self::Hardlink(r#in) => r#in.id,
-			Self::HardlinkDo(r#in) => r#in.id,
-			Self::Delete(r#in) => r#in.id,
-			Self::DeleteDo(r#in) => r#in.id,
-			Self::Trash(r#in) => r#in.id,
-			Self::TrashDo(r#in) => r#in.id,
-			Self::Download(r#in) => r#in.id,
-			Self::DownloadDo(r#in) => r#in.id,
-			Self::Upload(r#in) => r#in.id,
-			Self::UploadDo(r#in) => r#in.id,
-		}
-	}
-
 	pub(crate) fn into_doable(self) -> Self {
 		match self {
 			Self::Copy(r#in) => Self::CopyDo(r#in),
@@ -89,7 +138,21 @@ pub(crate) struct FileInCopy {
 	pub(crate) cha:    Option<Cha>,
 	pub(crate) follow: bool,
 	pub(crate) retry:  u8,
-	pub(crate) done:   CompletionToken,
+}
+
+impl TaskIn for FileInCopy {
+	type Prog = FileProgCopy;
+
+	fn id(&self) -> Id { self.id }
+
+	fn set_id(&mut self, id: Id) -> &mut Self {
+		self.id = id;
+		self
+	}
+
+	fn title(&self) -> Cow<'_, str> {
+		format!("Copy {} to {}", self.from.display(), self.to.display()).into()
+	}
 }
 
 impl FileInCopy {
@@ -117,8 +180,22 @@ pub(crate) struct FileInCut {
 	pub(crate) cha:    Option<Cha>,
 	pub(crate) follow: bool,
 	pub(crate) retry:  u8,
-	pub(crate) done:   CompletionToken,
 	pub(crate) drop:   Option<mpsc::Sender<()>>,
+}
+
+impl TaskIn for FileInCut {
+	type Prog = FileProgCut;
+
+	fn id(&self) -> Id { self.id }
+
+	fn set_id(&mut self, id: Id) -> &mut Self {
+		self.id = id;
+		self
+	}
+
+	fn title(&self) -> Cow<'_, str> {
+		format!("Cut {} to {}", self.from.display(), self.to.display()).into()
+	}
 }
 
 impl Drop for FileInCut {
@@ -158,6 +235,21 @@ pub(crate) struct FileInLink {
 	pub(crate) delete:   bool,
 }
 
+impl TaskIn for FileInLink {
+	type Prog = FileProgLink;
+
+	fn id(&self) -> Id { self.id }
+
+	fn set_id(&mut self, id: Id) -> &mut Self {
+		self.id = id;
+		self
+	}
+
+	fn title(&self) -> Cow<'_, str> {
+		format!("Link {} to {}", self.from.display(), self.to.display()).into()
+	}
+}
+
 // --- Hardlink
 #[derive(Clone, Debug)]
 pub(crate) struct FileInHardlink {
@@ -169,12 +261,40 @@ pub(crate) struct FileInHardlink {
 	pub(crate) follow: bool,
 }
 
+impl TaskIn for FileInHardlink {
+	type Prog = FileProgHardlink;
+
+	fn id(&self) -> Id { self.id }
+
+	fn set_id(&mut self, id: Id) -> &mut Self {
+		self.id = id;
+		self
+	}
+
+	fn title(&self) -> Cow<'_, str> {
+		format!("Hardlink {} to {}", self.from.display(), self.to.display()).into()
+	}
+}
+
 // --- Delete
 #[derive(Clone, Debug)]
 pub(crate) struct FileInDelete {
 	pub(crate) id:     Id,
 	pub(crate) target: UrlBuf,
 	pub(crate) cha:    Option<Cha>,
+}
+
+impl TaskIn for FileInDelete {
+	type Prog = FileProgDelete;
+
+	fn id(&self) -> Id { self.id }
+
+	fn set_id(&mut self, id: Id) -> &mut Self {
+		self.id = id;
+		self
+	}
+
+	fn title(&self) -> Cow<'_, str> { format!("Delete {}", self.target.display()).into() }
 }
 
 // --- Trash
@@ -184,6 +304,19 @@ pub(crate) struct FileInTrash {
 	pub(crate) target: UrlBuf,
 }
 
+impl TaskIn for FileInTrash {
+	type Prog = FileProgTrash;
+
+	fn id(&self) -> Id { self.id }
+
+	fn set_id(&mut self, id: Id) -> &mut Self {
+		self.id = id;
+		self
+	}
+
+	fn title(&self) -> Cow<'_, str> { format!("Trash {}", self.target.display()).into() }
+}
+
 // --- Download
 #[derive(Clone, Debug)]
 pub(crate) struct FileInDownload {
@@ -191,7 +324,19 @@ pub(crate) struct FileInDownload {
 	pub(crate) target: UrlBuf,
 	pub(crate) cha:    Option<Cha>,
 	pub(crate) retry:  u8,
-	pub(crate) done:   CompletionToken,
+}
+
+impl TaskIn for FileInDownload {
+	type Prog = FileProgDownload;
+
+	fn id(&self) -> Id { self.id }
+
+	fn set_id(&mut self, id: Id) -> &mut Self {
+		self.id = id;
+		self
+	}
+
+	fn title(&self) -> Cow<'_, str> { format!("Download {}", self.target.display()).into() }
 }
 
 // --- Upload
@@ -201,5 +346,17 @@ pub(crate) struct FileInUpload {
 	pub(crate) target: UrlBuf,
 	pub(crate) cha:    Option<Cha>,
 	pub(crate) cache:  Option<PathBuf>,
-	pub(crate) done:   CompletionToken,
+}
+
+impl TaskIn for FileInUpload {
+	type Prog = FileProgUpload;
+
+	fn id(&self) -> Id { self.id }
+
+	fn set_id(&mut self, id: Id) -> &mut Self {
+		self.id = id;
+		self
+	}
+
+	fn title(&self) -> Cow<'_, str> { format!("Upload {}", self.target.display()).into() }
 }

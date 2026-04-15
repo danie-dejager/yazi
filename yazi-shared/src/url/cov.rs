@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::url::{AsUrl, Url, UrlBuf, UrlCow, UrlLike};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq)]
 pub struct UrlCov<'a>(Url<'a>);
 
 impl<'a> Deref for UrlCov<'a> {
@@ -14,12 +14,20 @@ impl<'a> Deref for UrlCov<'a> {
 	fn deref(&self) -> &Self::Target { &self.0 }
 }
 
+impl<'a> From<&'a UrlBuf> for UrlCov<'a> {
+	fn from(value: &'a UrlBuf) -> Self { Self(value.as_url()) }
+}
+
 impl<'a> From<&'a UrlBufCov> for UrlCov<'a> {
-	fn from(value: &'a UrlBufCov) -> Self { Self(value.0.as_url()) }
+	fn from(value: &'a UrlBufCov) -> Self { Self(value.as_url()) }
+}
+
+impl PartialEq for UrlCov<'_> {
+	fn eq(&self, other: &UrlCov) -> bool { self.covariant(other.0) }
 }
 
 impl PartialEq<UrlBufCov> for UrlCov<'_> {
-	fn eq(&self, other: &UrlBufCov) -> bool { self.0.covariant(&other.0) }
+	fn eq(&self, other: &UrlBufCov) -> bool { self.covariant(&other.0) }
 }
 
 impl Hash for UrlCov<'_> {
@@ -72,6 +80,10 @@ impl From<UrlCow<'_>> for UrlBufCov {
 
 impl From<Url<'_>> for UrlBufCov {
 	fn from(value: Url<'_>) -> Self { Self(value.to_owned()) }
+}
+
+impl From<UrlCov<'_>> for UrlBufCov {
+	fn from(value: UrlCov<'_>) -> Self { Self(UrlBuf::from(&value.0)) }
 }
 
 impl From<&UrlCov<'_>> for UrlBufCov {

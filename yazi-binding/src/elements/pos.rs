@@ -1,6 +1,7 @@
 use std::{ops::Deref, str::FromStr};
 
-use mlua::{AnyUserData, ExternalError, ExternalResult, IntoLua, Lua, MetaMethod, Table, UserData, Value};
+use mlua::{AnyUserData, ExternalError, ExternalResult, FromLua, IntoLua, Lua, MetaMethod, Table, UserData, UserDataMethods, Value};
+use yazi_shim::strum::IntoStr;
 
 use super::Pad;
 
@@ -29,10 +30,10 @@ impl From<Pos> for yazi_config::popup::Position {
 	fn from(value: Pos) -> Self { value.inner }
 }
 
-impl TryFrom<mlua::Table> for Pos {
+impl TryFrom<Table> for Pos {
 	type Error = mlua::Error;
 
-	fn try_from(t: mlua::Table) -> Result<Self, Self::Error> {
+	fn try_from(t: Table) -> Result<Self, Self::Error> {
 		use yazi_config::popup::{Offset, Origin, Position};
 
 		Ok(Self::from(Position {
@@ -47,10 +48,8 @@ impl TryFrom<mlua::Table> for Pos {
 	}
 }
 
-impl TryFrom<Value> for Pos {
-	type Error = mlua::Error;
-
-	fn try_from(value: Value) -> Result<Self, Self::Error> {
+impl FromLua for Pos {
+	fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
 		Ok(match value {
 			Value::Table(tbl) => Self::try_from(tbl)?,
 			Value::UserData(ud) => {
@@ -75,24 +74,23 @@ impl Pos {
 		position.into_lua(lua)
 	}
 
-	pub fn new_input(v: Value) -> mlua::Result<Self> {
-		let mut p = Self::try_from(v)?;
-		p.inner.offset.height = 3;
-		Ok(p)
+	pub fn with_height(mut self, height: u16) -> Self {
+		self.inner.offset.height = height;
+		self
 	}
 }
 
 impl UserData for Pos {
 	fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
 		// TODO: cache
-		fields.add_field_method_get("1", |_, me| Ok(me.origin.to_string()));
+		fields.add_field_method_get("1", |_, me| Ok(me.origin.into_str()));
 		fields.add_field_method_get("x", |_, me| Ok(me.offset.x));
 		fields.add_field_method_get("y", |_, me| Ok(me.offset.y));
 		fields.add_field_method_get("w", |_, me| Ok(me.offset.width));
 		fields.add_field_method_get("h", |_, me| Ok(me.offset.height));
 	}
 
-	fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+	fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
 		methods.add_function_mut("pad", |_, (ud, pad): (AnyUserData, Pad)| {
 			ud.borrow_mut::<Self>()?.pad = pad;
 			Ok(ud)

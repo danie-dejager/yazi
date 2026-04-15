@@ -7,7 +7,7 @@ Status = {
 	_inc = 1000,
 	_left = {
 		{ "mode", id = 1, order = 1000 },
-		{ "size", id = 2, order = 2000 },
+		{ "length", id = 2, order = 2000 },
 		{ "name", id = 3, order = 3000 },
 	},
 	_right = {
@@ -26,13 +26,13 @@ function Status:new(area, tab)
 end
 
 function Status:style()
-	local m = th.mode
+	local m, s = th.mode, ui.Style():fg("reset"):bg("reset")
 	if self._tab.mode.is_select then
-		return { main = m.select_main, alt = m.select_alt }
+		return { main = s:patch(m.select_main), alt = s:patch(m.select_alt) }
 	elseif self._tab.mode.is_unset then
-		return { main = m.unset_main, alt = m.unset_alt }
+		return { main = s:patch(m.unset_main), alt = s:patch(m.unset_alt) }
 	else
-		return { main = m.normal_main, alt = m.normal_alt }
+		return { main = s:patch(m.normal_main), alt = s:patch(m.normal_alt) }
 	end
 end
 
@@ -47,13 +47,13 @@ function Status:mode()
 	}
 end
 
-function Status:size()
+function Status:length()
 	local h = self._current.hovered
-	local size = h and (h:size() or h.cha.len) or 0
+	local len = h and h.cha.len or 0
 
 	local style = self:style()
 	return ui.Line {
-		ui.Span(" " .. ya.readable_size(size) .. " "):style(style.alt),
+		ui.Span(" " .. ya.readable_size(len) .. " "):style(style.alt),
 		ui.Span(th.status.sep_left.close):fg(style.alt:bg()),
 	}
 end

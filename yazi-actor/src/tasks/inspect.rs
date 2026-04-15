@@ -6,8 +6,8 @@ use scopeguard::defer;
 use tokio::{io::{AsyncReadExt, stdin}, select, sync::mpsc, time};
 use yazi_binding::Permit;
 use yazi_macro::succ;
-use yazi_parser::VoidOpt;
-use yazi_proxy::AppProxy;
+use yazi_parser::VoidForm;
+use yazi_scheduler::AppProxy;
 use yazi_shared::{data::Data, terminal_clear};
 use yazi_term::YIELD_TO_SUBPROCESS;
 use yazi_tty::TTY;
@@ -17,12 +17,12 @@ use crate::{Actor, Ctx};
 pub struct Inspect;
 
 impl Actor for Inspect {
-	type Options = VoidOpt;
+	type Form = VoidForm;
 
 	const NAME: &str = "inspect";
 
-	fn act(cx: &mut Ctx, _: Self::Options) -> Result<Data> {
-		let ongoing = cx.tasks.ongoing().clone();
+	fn act(cx: &mut Ctx, _: Self::Form) -> Result<Data> {
+		let ongoing = cx.tasks.scheduler.ongoing.clone();
 		let Some(id) = ongoing.lock().get_id(cx.tasks.cursor) else {
 			succ!();
 		};

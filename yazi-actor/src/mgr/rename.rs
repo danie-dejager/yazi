@@ -3,32 +3,33 @@ use yazi_config::popup::{ConfirmCfg, InputCfg};
 use yazi_dds::Pubsub;
 use yazi_fs::{File, FilesOp};
 use yazi_macro::{act, err, ok_or_not_found, succ};
-use yazi_parser::mgr::RenameOpt;
+use yazi_parser::mgr::RenameForm;
 use yazi_proxy::{ConfirmProxy, InputProxy, MgrProxy};
 use yazi_shared::{Id, data::Data, url::{UrlBuf, UrlLike}};
 use yazi_vfs::{VfsFile, maybe_exists, provider};
 use yazi_watcher::WATCHER;
+use yazi_widgets::input::InputEvent;
 
 use crate::{Actor, Ctx};
 
 pub struct Rename;
 
 impl Actor for Rename {
-	type Options = RenameOpt;
+	type Form = RenameForm;
 
 	const NAME: &str = "rename";
 
-	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
+	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
 		act!(mgr:escape_visual, cx)?;
 
-		if !opt.hovered && !cx.tab().selected.is_empty() {
+		if !form.hovered && !cx.tab().selected.is_empty() {
 			return act!(mgr:bulk_rename, cx);
 		}
 
 		let Some(hovered) = cx.hovered() else { succ!() };
 
-		let name = Self::empty_url_part(&hovered.url, &opt.empty);
-		let cursor = match opt.cursor.as_ref() {
+		let name = Self::empty_url_part(&hovered.url, &form.empty);
+		let cursor = match form.cursor.as_ref() {
 			"start" => Some(0),
 			"before_ext" => name
 				.chars()
@@ -44,7 +45,7 @@ impl Actor for Rename {
 		let mut input = InputProxy::show(InputCfg::rename().with_value(name).with_cursor(cursor));
 
 		tokio::spawn(async move {
-			let Some(Ok(name)) = input.recv().await else { return };
+			let Some(InputEvent::Submit(name)) = input.recv().await else { return };
 			if name.is_empty() {
 				return;
 			}
@@ -53,7 +54,7 @@ impl Actor for Rename {
 				return;
 			};
 
-			if opt.force || !maybe_exists(&new).await || provider::must_identical(&old, &new).await {
+			if form.force || !maybe_exists(&new).await || provider::must_identical(&old, &new).await {
 				Self::r#do(tab, old, new).await.ok();
 			} else if ConfirmProxy::show(ConfirmCfg::overwrite(&new)).await {
 				Self::r#do(tab, old, new).await.ok();

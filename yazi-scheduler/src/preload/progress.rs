@@ -1,32 +1,30 @@
 use serde::Serialize;
-use yazi_parser::app::TaskSummary;
+
+use crate::{CleanupState, Progress, TaskSummary};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct PreloadProg {
-	pub state: Option<bool>,
+	pub state:   Option<bool>,
+	pub cleaned: CleanupState,
 }
 
 impl From<PreloadProg> for TaskSummary {
 	fn from(value: PreloadProg) -> Self {
 		Self {
 			total:   1,
-			success: (value.state == Some(true)) as u32,
-			failed:  (value.state == Some(false)) as u32,
+			success: value.success() as u32,
+			failed:  value.failed() as u32,
 			percent: value.percent().map(Into::into),
 		}
 	}
 }
 
-impl PreloadProg {
-	pub fn cooked(self) -> bool { self.state == Some(true) }
+impl Progress for PreloadProg {
+	fn running(self) -> bool { self.cooking_or_cleaning(self.state.is_none()) }
 
-	pub fn running(self) -> bool { self.state.is_none() }
+	fn cooked(self) -> bool { self.state == Some(true) }
 
-	pub fn success(self) -> bool { self.cooked() }
+	fn failed(self) -> bool { self.cleaned.is_failed() || self.state == Some(false) }
 
-	pub fn failed(self) -> bool { self.state == Some(false) }
-
-	pub fn cleaned(self) -> Option<bool> { None }
-
-	pub fn percent(self) -> Option<f32> { None }
+	fn cleaned(self) -> Option<CleanupState> { Some(self.cleaned) }
 }

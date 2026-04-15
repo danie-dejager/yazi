@@ -3,9 +3,9 @@ use std::time::Duration;
 use anyhow::Result;
 use tokio::{select, time};
 use yazi_config::popup::ConfirmCfg;
-use yazi_dds::spark::SparkKind;
+use yazi_core::app::QuitOpt;
 use yazi_macro::{act, succ};
-use yazi_parser::app::QuitOpt;
+use yazi_parser::{app::QuitForm, spark::SparkKind};
 use yazi_proxy::{AppProxy, ConfirmProxy};
 use yazi_shared::{data::Data, strand::{Strand, StrandLike, ToStrandJoin}, url::AsUrl};
 
@@ -14,15 +14,15 @@ use crate::{Actor, Ctx};
 pub struct Quit;
 
 impl Actor for Quit {
-	type Options = QuitOpt;
+	type Form = QuitForm;
 
 	const NAME: &str = "quit";
 
-	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
-		let ongoing = cx.tasks().ongoing().clone();
-		let (left, left_names) = {
+	fn act(cx: &mut Ctx, Self::Form { opt }: Self::Form) -> Result<Data> {
+		let ongoing = cx.tasks.scheduler.ongoing.clone();
+		let (left, left_titles) = {
 			let ongoing = ongoing.lock();
-			(ongoing.len(), ongoing.values().take(11).map(|t| t.name.clone()).collect())
+			(ongoing.len(), ongoing.values().take(11).map(|t| t.title.clone()).collect())
 		};
 
 		if left == 0 {
@@ -31,7 +31,7 @@ impl Actor for Quit {
 
 		tokio::spawn(async move {
 			let mut i = 0;
-			let token = ConfirmProxy::show_sync(ConfirmCfg::quit(left, left_names));
+			let token = ConfirmProxy::show_sync(ConfirmCfg::quit(left, left_titles));
 			loop {
 				select! {
 					_ = time::sleep(Duration::from_millis(50)) => {
@@ -58,7 +58,7 @@ impl Actor for Quit {
 		succ!();
 	}
 
-	fn hook(cx: &Ctx, _opt: &Self::Options) -> Option<SparkKind> {
+	fn hook(cx: &Ctx, _form: &Self::Form) -> Option<SparkKind> {
 		Some(SparkKind::KeyQuit).filter(|_| cx.source().is_key())
 	}
 }

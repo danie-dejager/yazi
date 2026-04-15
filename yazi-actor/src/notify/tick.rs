@@ -5,7 +5,7 @@ use ratatui::layout::Rect;
 use yazi_core::notify::Notify;
 use yazi_emulator::Dimension;
 use yazi_macro::{render, render_partial, succ};
-use yazi_parser::notify::TickOpt;
+use yazi_parser::notify::TickForm;
 use yazi_proxy::NotifyProxy;
 use yazi_shared::data::Data;
 
@@ -14,12 +14,12 @@ use crate::{Actor, Ctx};
 pub struct Tick;
 
 impl Actor for Tick {
-	type Options = TickOpt;
+	type Form = TickForm;
 
 	const NAME: &str = "tick";
 
-	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
-		cx.notify.tick_handle.take().map(|h| h.abort());
+	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
+		cx.notify.ticker.take().map(|h| h.abort());
 
 		let Dimension { rows, columns, .. } = Dimension::available();
 		let area = Notify::available(Rect { x: 0, y: 0, width: columns, height: rows });
@@ -35,7 +35,7 @@ impl Actor for Tick {
 			} else if m.percent < 100 {
 				m.percent += 20;
 			} else {
-				m.timeout = m.timeout.saturating_sub(opt.interval);
+				m.timeout = m.timeout.saturating_sub(form.interval);
 			}
 		}
 
@@ -55,7 +55,7 @@ impl Actor for Tick {
 			succ!(render!());
 		};
 
-		cx.notify.tick_handle = Some(tokio::spawn(async move {
+		cx.notify.ticker = Some(tokio::spawn(async move {
 			tokio::time::sleep(interval).await;
 			NotifyProxy::tick(interval);
 		}));

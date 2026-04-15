@@ -25,21 +25,6 @@ macro_rules! ok_or_not_found {
 }
 
 #[macro_export]
-macro_rules! progress_or_break {
-	($rx:ident, $done:expr) => {
-		tokio::select! {
-			r = $rx.recv() => {
-				match r {
-					Some(prog) => prog,
-					None => break,
-				}
-			},
-			false = $done.future() => break,
-		}
-	};
-}
-
-#[macro_export]
 macro_rules! impl_from_out {
 	($($variant:ident($type:ty)),* $(,)?) => {
 		$(
@@ -58,5 +43,32 @@ macro_rules! impl_from_prog {
 				fn from(value: $type) -> Self { Self::$variant(value) }
 			}
 		)*
+	};
+}
+
+#[macro_export]
+macro_rules! dispatch_progress {
+	($value:expr, $method:ident) => {
+		match $value {
+			// File
+			$crate::TaskProg::FileCopy(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::FileCut(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::FileLink(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::FileHardlink(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::FileDelete(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::FileTrash(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::FileDownload(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::FileUpload(p) => $crate::Progress::$method(p),
+			// Plugin
+			$crate::TaskProg::PluginEntry(p) => $crate::Progress::$method(p),
+			// Prework
+			$crate::TaskProg::Fetch(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::Preload(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::Size(p) => $crate::Progress::$method(p),
+			// Process
+			$crate::TaskProg::ProcessBlock(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::ProcessOrphan(p) => $crate::Progress::$method(p),
+			$crate::TaskProg::ProcessBg(p) => $crate::Progress::$method(p),
+		}
 	};
 }

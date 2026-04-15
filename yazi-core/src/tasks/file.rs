@@ -1,4 +1,4 @@
-use hashbrown::HashSet;
+use indexmap::IndexSet;
 use tracing::debug;
 use yazi_shared::url::{UrlBuf, UrlBufCov, UrlLike};
 
@@ -7,6 +7,8 @@ use crate::mgr::Yanked;
 
 impl Tasks {
 	pub fn file_cut(&self, src: &Yanked, dest: &UrlBuf, force: bool) {
+		self.scheduler.behavior.reset();
+
 		for u in src.iter() {
 			let Some(Ok(to)) = u.name().map(|n| dest.try_join(n)) else {
 				debug!("file_cut: cannot join {u:?} with {dest:?}");
@@ -21,6 +23,8 @@ impl Tasks {
 	}
 
 	pub fn file_copy(&self, src: &Yanked, dest: &UrlBuf, force: bool, follow: bool) {
+		self.scheduler.behavior.reset();
+
 		for u in src.iter() {
 			let Some(Ok(to)) = u.name().map(|n| dest.try_join(n)) else {
 				debug!("file_copy: cannot join {u:?} with {dest:?}");
@@ -34,7 +38,9 @@ impl Tasks {
 		}
 	}
 
-	pub fn file_link(&self, src: &HashSet<UrlBufCov>, dest: &UrlBuf, relative: bool, force: bool) {
+	pub fn file_link(&self, src: &IndexSet<UrlBufCov>, dest: &UrlBuf, relative: bool, force: bool) {
+		self.scheduler.behavior.reset();
+
 		for u in src {
 			let Some(Ok(to)) = u.name().map(|n| dest.try_join(n)) else {
 				debug!("file_link: cannot join {u:?} with {dest:?}");
@@ -48,7 +54,9 @@ impl Tasks {
 		}
 	}
 
-	pub fn file_hardlink(&self, src: &HashSet<UrlBufCov>, dest: &UrlBuf, force: bool, follow: bool) {
+	pub fn file_hardlink(&self, src: &IndexSet<UrlBufCov>, dest: &UrlBuf, force: bool, follow: bool) {
+		self.scheduler.behavior.reset();
+
 		for u in src {
 			let Some(Ok(to)) = u.name().map(|n| dest.try_join(n)) else {
 				debug!("file_hardlink: cannot join {u:?} with {dest:?}");

@@ -1,4 +1,4 @@
-use mlua::{AnyUserData, IntoLua, Lua, MetaMethod, Table, UserData, Value};
+use mlua::{AnyUserData, IntoLua, Lua, MetaMethod, Table, UserData, UserDataMethods, Value};
 use ratatui::widgets::{Borders, Widget};
 
 use super::{Area, Edge};
@@ -42,8 +42,13 @@ impl Border {
 		border.set_metatable(Some(lua.create_table_from([(MetaMethod::Call.name(), new)])?))?;
 		border.into_lua(lua)
 	}
+}
 
-	pub(super) fn render(self, rect: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+impl Widget for Border {
+	fn render(self, rect: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer)
+	where
+		Self: Sized,
+	{
 		let mut block = ratatui::widgets::Block::default()
 			.borders(self.edge.0)
 			.border_type(self.r#type)
@@ -51,8 +56,8 @@ impl Border {
 
 		for title in self.titles {
 			block = match title {
-				(ratatui::widgets::TitlePosition::Top, line) => block.title(line),
-				(ratatui::widgets::TitlePosition::Bottom, line) => block.title(line),
+				(ratatui::widgets::TitlePosition::Top, line) => block.title_top(line),
+				(ratatui::widgets::TitlePosition::Bottom, line) => block.title_bottom(line),
 			};
 		}
 
@@ -60,8 +65,17 @@ impl Border {
 	}
 }
 
+impl Widget for &Border {
+	fn render(self, rect: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer)
+	where
+		Self: Sized,
+	{
+		self.clone().render(rect, buf);
+	}
+}
+
 impl UserData for Border {
-	fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+	fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
 		crate::impl_area_method!(methods);
 		crate::impl_style_method!(methods, style);
 
@@ -78,14 +92,14 @@ impl UserData for Border {
 		});
 		methods.add_function_mut(
 			"title",
-			|_, (ud, line, position): (AnyUserData, Value, Option<u8>)| {
+			|_, (ud, line, position): (AnyUserData, Line, Option<u8>)| {
 				let position = if position == Some(Borders::BOTTOM.bits()) {
 					ratatui::widgets::TitlePosition::Bottom
 				} else {
 					ratatui::widgets::TitlePosition::Top
 				};
 
-				ud.borrow_mut::<Self>()?.titles.push((position, Line::try_from(line)?.inner));
+				ud.borrow_mut::<Self>()?.titles.push((position, line.inner));
 				Ok(ud)
 			},
 		);

@@ -1,38 +1,29 @@
-use anyhow::bail;
+use anyhow::anyhow;
 use mlua::{ExternalError, FromLua, IntoLua, Lua, Value};
-use yazi_shared::{Id, event::ActionCow, path::PathBufDyn, strand::StrandBuf, url::UrlBuf};
+use yazi_core::cmp::CmpOpt;
+use yazi_shared::event::ActionCow;
 
 #[derive(Clone, Debug)]
-pub struct ShowOpt {
-	pub cache:      Vec<CmpItem>,
-	pub cache_name: UrlBuf,
-	pub word:       PathBufDyn,
-	pub ticket:     Id,
+pub struct ShowForm {
+	pub opt: CmpOpt,
 }
 
-impl TryFrom<ActionCow> for ShowOpt {
+impl From<CmpOpt> for ShowForm {
+	fn from(opt: CmpOpt) -> Self { Self { opt } }
+}
+
+impl TryFrom<ActionCow> for ShowForm {
 	type Error = anyhow::Error;
 
 	fn try_from(mut a: ActionCow) -> Result<Self, Self::Error> {
-		if let Some(opt) = a.take_any2("opt") {
-			opt
-		} else {
-			bail!("missing 'opt' argument");
-		}
+		Ok(Self { opt: a.take_any("opt").ok_or_else(|| anyhow!("Invalid 'opt' in ShowForm"))? })
 	}
 }
 
-impl FromLua for ShowOpt {
+impl FromLua for ShowForm {
 	fn from_lua(_: Value, _: &Lua) -> mlua::Result<Self> { Err("unsupported".into_lua_err()) }
 }
 
-impl IntoLua for ShowOpt {
+impl IntoLua for ShowForm {
 	fn into_lua(self, _: &Lua) -> mlua::Result<Value> { Err("unsupported".into_lua_err()) }
-}
-
-// --- Item
-#[derive(Debug, Clone)]
-pub struct CmpItem {
-	pub name:   StrandBuf,
-	pub is_dir: bool,
 }

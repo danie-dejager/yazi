@@ -14,7 +14,6 @@ impl<'a> Executor<'a> {
 	#[inline]
 	pub(super) fn new(app: &'a mut App) -> Self { Self { app } }
 
-	#[inline]
 	pub(super) fn execute(&mut self, action: ActionCow) -> Result<Data> {
 		match action.layer {
 			Layer::App => self.app(action),
@@ -46,19 +45,20 @@ impl<'a> Executor<'a> {
 		on!(plugin);
 		on!(plugin_do);
 		on!(update_progress);
+		on!(lua);
 		on!(deprecate);
 		on!(quit);
 
 		match &*action.name {
 			"resize" => act!(app:resize, cx, crate::Root::reflow as fn(_) -> _),
-			"resume" => act!(app:resume, cx, yazi_parser::app::ResumeOpt {
+			"resume" => act!(app:resume, cx, yazi_parser::app::ResumeForm {
 				tx: self.app.signals.tx.clone(),
-				token: action.take_any("token").context("Invalid 'token' in ResumeOpt")?,
 				reflow: crate::Root::reflow,
+				replier: action.take_replier().context("Missing replier in ResumeForm")?,
 			}),
-			"stop" => act!(app:stop, cx, yazi_parser::app::StopOpt {
+			"stop" => act!(app:stop, cx, yazi_parser::app::StopForm {
 				tx: self.app.signals.tx.clone(),
-				token: action.take_any("token").context("Invalid 'token' in StopOpt")?,
+				replier: action.take_replier().context("Missing replier in StopForm")?,
 			}),
 			_ => succ!(),
 		}
@@ -101,6 +101,7 @@ impl<'a> Executor<'a> {
 		on!(forward);
 		on!(reveal);
 		on!(follow);
+		on!(stash);
 
 		// Toggle
 		on!(toggle);
@@ -125,6 +126,7 @@ impl<'a> Executor<'a> {
 		on!(linemode);
 		on!(search);
 		on!(search_do);
+		on!(bulk_exit);
 		on!(bulk_rename);
 
 		// Filter
@@ -156,6 +158,8 @@ impl<'a> Executor<'a> {
 			"help" => act!(help:toggle, cx, Layer::Mgr),
 			// Plugin
 			"plugin" => act!(app:plugin, cx, action),
+			// Lua
+			"lua" => act!(app:lua, cx, action),
 			_ => succ!(),
 		}
 	}
@@ -172,6 +176,7 @@ impl<'a> Executor<'a> {
 		}
 
 		on!(update_succeed);
+		on!(spawn);
 
 		on!(show);
 		on!(close);
@@ -186,6 +191,8 @@ impl<'a> Executor<'a> {
 			"help" => act!(help:toggle, cx, Layer::Tasks),
 			// Plugin
 			"plugin" => act!(app:plugin, cx, action),
+			// Lua
+			"lua" => act!(app:lua, cx, action),
 			_ => succ!(),
 		}
 	}
@@ -211,6 +218,8 @@ impl<'a> Executor<'a> {
 			"help" => act!(help:toggle, cx, Layer::Spot),
 			// Plugin
 			"plugin" => act!(app:plugin, cx, action),
+			// Lua
+			"lua" => act!(app:lua, cx, action),
 			_ => succ!(),
 		}
 	}
@@ -235,6 +244,8 @@ impl<'a> Executor<'a> {
 			"help" => act!(help:toggle, cx, Layer::Pick),
 			// Plugin
 			"plugin" => act!(app:plugin, cx, action),
+			// Lua
+			"lua" => act!(app:lua, cx, action),
 			_ => succ!(),
 		}
 	}
@@ -262,6 +273,8 @@ impl<'a> Executor<'a> {
 					"help" => return act!(help:toggle, cx, Layer::Input),
 					// Plugin
 					"plugin" => return act!(app:plugin, cx, action),
+					// Lua
+					"lua" => return act!(app:lua, cx, action),
 					_ => {}
 				}
 			}
@@ -312,6 +325,8 @@ impl<'a> Executor<'a> {
 			"close" => act!(help:toggle, cx, Layer::Help),
 			// Plugin
 			"plugin" => act!(app:plugin, cx, action),
+			// Lua
+			"lua" => act!(app:lua, cx, action),
 			_ => succ!(),
 		}
 	}
@@ -337,6 +352,8 @@ impl<'a> Executor<'a> {
 			"help" => act!(help:toggle, cx, Layer::Cmp),
 			// Plugin
 			"plugin" => act!(app:plugin, cx, action),
+			// Lua
+			"lua" => act!(app:lua, cx, action),
 			_ => succ!(),
 		}
 	}

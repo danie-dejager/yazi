@@ -1,9 +1,8 @@
 use anyhow::Result;
 use tokio::sync::mpsc;
-use yazi_plugin::isolate;
+use yazi_runner::RUNNER;
 
-use super::PluginInEntry;
-use crate::{TaskOp, TaskOps, plugin::{PluginIn, PluginOutEntry}};
+use crate::{TaskOp, TaskOps, plugin::{PluginIn, PluginInEntry, PluginOutEntry}};
 
 pub(crate) struct Plugin {
 	ops: TaskOps,
@@ -19,8 +18,10 @@ impl Plugin {
 	}
 
 	pub(crate) async fn entry(&self, task: PluginInEntry) -> Result<(), PluginOutEntry> {
-		isolate::entry(task.opt).await?;
-		Ok(self.ops.out(task.id, PluginOutEntry::Succ))
+		let id = task.id;
+
+		RUNNER.entry(task.into_job()).await?;
+		Ok(self.ops.out(id, PluginOutEntry::Succ))
 	}
 }
 

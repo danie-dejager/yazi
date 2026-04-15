@@ -16,25 +16,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - Custom tab name ([#3666])
 - New `--in` for `search` action to set search directory ([#3696])
+- Hover cursor over the new file after copying/cutting/linking/hardlinking/extracting ([#3846], [#3854])
 - Multi-file spotter ([#3733])
+- Vim-like `lua` action that runs an inline Lua snippet ([#3813])
 - Certificate authentication for SFTP VFS provider ([#3716])
 - New `hovered` condition specifying different icons for hovered files ([#3728])
 - Allow using `ps.sub()` in `init.lua` directly without a plugin ([#3638])
+- New `ya.exec()` API and `ya exec` subcommand to execute an action and await its result ([#3780])
 - New `sort_fallback` option to control fallback sorting behavior ([#3077])
 - New `fs.access()` API to access the filesystem ([#3668])
 - New `relay-notify-push` DDS event to customize the notification handler ([#3642])
 - New `ind-app-title` DDS event to customize the app title ([#3684])
+- New `ind-hidden` and `key-hidden` DDS events to change hidden status in Lua ([#3748])
 - New `marker_symbol` option to specify the symbol used for marking files ([#3689])
+- New `--discard` for `ya pkg` that discard local changes made to packages ([#3781])
+- New `bulk_exit` action that customizes the prompt for bulk operations ([#3792])
 - New `fs.unique()` creates a unique file or directory ([#3677])
 - New `download` DDS event fires when remote files are downloaded ([#3687])
 - New `ind-which-activate` DDS event to change the which component behavior ([#3608])
 - New `hey` DDS event fires when static messages are restored from persistence ([#3725])
 - New `cx.which` API to access the which component state ([#3617])
+- New experimental `ya.co()` API that creates a coroutine ([#3757])
 
 ### Changed
 
 - Upgrade Lua to 5.5 ([#3633])
 - Change preset <kbd>t</kbd> for creating tabs to <kbd>t</kbd> ⇒ <kbd>t</kbd> to avoid conflict with new <kbd>t</kbd> ⇒ <kbd>r</kbd> for renaming tabs ([#3666])
+- Make `ui.Style` immutable ([#3862])
 - Remove `title_format` in favor of new `ind-app-title` DDS event for flexible title customization ([#3684])
 - Remove `micro_workers` and `macro_workers` in favor of finer control over concurrent workers ([#3661])
 
@@ -53,6 +61,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Improved
 
 - Reduce memory allocations by using Lua 5.5 external strings ([#3634])
+- Reuse previewed and spotted widgets when possible ([#3765])
+- Avoid unnecessary allocations in code highlighting ([#3804])
 
 ## [v26.1.22]
 
@@ -1678,3 +1688,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3728]: https://github.com/sxyazi/yazi/pull/3728
 [#3733]: https://github.com/sxyazi/yazi/pull/3733
 [#3744]: https://github.com/sxyazi/yazi/pull/3744
+[#3748]: https://github.com/sxyazi/yazi/pull/3748
+[#3757]: https://github.com/sxyazi/yazi/pull/3757
+[#3765]: https://github.com/sxyazi/yazi/pull/3765
+[#3780]: https://github.com/sxyazi/yazi/pull/3780
+[#3781]: https://github.com/sxyazi/yazi/pull/3781
+[#3792]: https://github.com/sxyazi/yazi/pull/3792
+[#3804]: https://github.com/sxyazi/yazi/pull/3804
+[#3813]: https://github.com/sxyazi/yazi/pull/3813
+[#3846]: https://github.com/sxyazi/yazi/pull/3846
+[#3854]: https://github.com/sxyazi/yazi/pull/3854
+[#3862]: https://github.com/sxyazi/yazi/pull/3862

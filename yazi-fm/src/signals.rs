@@ -3,10 +3,10 @@ use crossterm::event::{Event as CrosstermEvent, EventStream, KeyEvent, KeyEventK
 use futures::StreamExt;
 use tokio::{select, sync::mpsc};
 use yazi_config::YAZI;
-use yazi_shared::{CompletionToken, event::Event};
+use yazi_shared::event::{Event, Replier};
 
 pub(super) struct Signals {
-	pub(super) tx: mpsc::UnboundedSender<(bool, CompletionToken)>,
+	pub(super) tx: mpsc::UnboundedSender<(bool, Replier)>,
 }
 
 impl Signals {
@@ -21,25 +21,26 @@ impl Signals {
 	fn handle_sys(n: libc::c_int) -> bool {
 		use libc::{SIGCONT, SIGHUP, SIGINT, SIGQUIT, SIGSTOP, SIGTERM, SIGTSTP};
 		use tracing::error;
-		use yazi_proxy::AppProxy;
 		use yazi_term::YIELD_TO_SUBPROCESS;
 
 		match n {
 			SIGINT => { /* ignored */ }
 			SIGQUIT | SIGHUP | SIGTERM => {
-				AppProxy::quit(Default::default());
+				yazi_proxy::AppProxy::quit(Default::default());
 				return false;
 			}
 			SIGTSTP => {
 				tokio::spawn(async move {
-					AppProxy::stop().await;
+					yazi_scheduler::AppProxy::stop().await;
 					if unsafe { libc::kill(0, SIGSTOP) } != 0 {
 						error!("Failed to stop the process:\n{}", std::io::Error::last_os_error());
-						AppProxy::quit(Default::default());
+						yazi_proxy::AppProxy::quit(Default::default());
 					}
 				});
 			}
-			SIGCONT if YIELD_TO_SUBPROCESS.try_acquire().is_ok() => _ = tokio::spawn(AppProxy::resume()),
+			SIGCONT if YIELD_TO_SUBPROCESS.try_acquire().is_ok() => {
+				tokio::spawn(yazi_scheduler::AppProxy::resume());
+			}
 			_ => {}
 		}
 		true
@@ -54,10 +55,8 @@ impl Signals {
 			CrosstermEvent::Key(key @ KeyEvent { kind: KeyEventKind::Press, .. }) => {
 				Event::Key(key).emit()
 			}
-			CrosstermEvent::Mouse(mouse) => {
-				if YAZI.mgr.mouse_events.get().contains(mouse.kind.into()) {
-					Event::Mouse(mouse).emit();
-				}
+			CrosstermEvent::Mouse(mouse) if YAZI.mgr.mouse_events.get().contains(mouse.kind.into()) => {
+				Event::Mouse(mouse).emit()
 			}
 			CrosstermEvent::Resize(..) => Event::Resize.emit(),
 			CrosstermEvent::FocusGained => Event::Focus.emit(),
@@ -66,7 +65,7 @@ impl Signals {
 		}
 	}
 
-	fn spawn(mut rx: mpsc::UnboundedReceiver<(bool, CompletionToken)>) -> Result<()> {
+	fn spawn(mut rx: mpsc::UnboundedReceiver<(bool, Replier)>) -> Result<()> {
 		#[cfg(unix)]
 		use libc::{SIGCONT, SIGHUP, SIGINT, SIGQUIT, SIGTERM, SIGTSTP};
 
@@ -91,9 +90,9 @@ impl Signals {
 				if let Some(t) = &mut term {
 					select! {
 						biased;
-						Some((state, token)) = rx.recv() => {
+						Some((state, replier)) = rx.recv() => {
 							term = term.filter(|_| state);
-							token.complete(true);
+							replier.send(Ok(().into())).ok();
 						},
 						Some(n) = sys.next() => if !Self::handle_sys(n) { return },
 						Some(Ok(e)) = t.next() => Self::handle_term(e)
@@ -101,9 +100,9 @@ impl Signals {
 				} else {
 					select! {
 						biased;
-						Some((state, token)) = rx.recv() => {
+						Some((state, replier)) = rx.recv() => {
 							term = state.then(EventStream::new);
-							token.complete(true);
+							replier.send(Ok(().into())).ok();
 						},
 						Some(n) = sys.next() => if !Self::handle_sys(n) { return },
 					}

@@ -1,8 +1,8 @@
 use anyhow::Result;
-use yazi_core::tab::Tab;
+use yazi_core::{mgr::CdSource, tab::Tab};
 use yazi_macro::{act, render, succ};
-use yazi_parser::mgr::{CdSource, TabCreateOpt};
-use yazi_proxy::NotifyProxy;
+use yazi_parser::mgr::TabCreateForm;
+use yazi_scheduler::NotifyProxy;
 use yazi_shared::{data::Data, url::UrlLike};
 
 use crate::{Actor, Ctx};
@@ -12,11 +12,11 @@ const MAX_TABS: usize = 9;
 pub struct TabCreate;
 
 impl Actor for TabCreate {
-	type Options = TabCreateOpt;
+	type Form = TabCreateForm;
 
 	const NAME: &str = "tab_create";
 
-	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
+	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
 		if cx.tabs().len() >= MAX_TABS {
 			succ!(NotifyProxy::push_warn(
 				"Too many tabs",
@@ -25,8 +25,8 @@ impl Actor for TabCreate {
 		}
 
 		let mut tab = Tab::default();
-		let (cd, url) = if let Some(wd) = opt.url {
-			(true, wd.into_owned())
+		let (cd, url) = if let Some(target) = form.target {
+			(true, target)
 		} else if let Some(h) = cx.hovered() {
 			tab.pref = cx.tab().pref.clone();
 			(false, h.url.clone())

@@ -1,5 +1,6 @@
 use serde::Serialize;
-use yazi_parser::app::TaskSummary;
+
+use crate::{Progress, TaskSummary};
 
 // --- Block
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
@@ -10,26 +11,20 @@ pub struct ProcessProgBlock {
 impl From<ProcessProgBlock> for TaskSummary {
 	fn from(value: ProcessProgBlock) -> Self {
 		Self {
-			total:   (value.state == Some(false)) as u32,
+			total:   value.failed() as u32,
 			success: 0,
-			failed:  (value.state == Some(false)) as u32,
+			failed:  value.failed() as u32,
 			percent: value.percent().map(Into::into),
 		}
 	}
 }
 
-impl ProcessProgBlock {
-	pub fn cooked(self) -> bool { self.state == Some(true) }
+impl Progress for ProcessProgBlock {
+	fn running(self) -> bool { self.state.is_none() }
 
-	pub fn running(self) -> bool { self.state.is_none() }
+	fn cooked(self) -> bool { self.state == Some(true) }
 
-	pub fn success(self) -> bool { self.cooked() }
-
-	pub fn failed(self) -> bool { self.state == Some(false) }
-
-	pub fn cleaned(self) -> Option<bool> { None }
-
-	pub fn percent(self) -> Option<f32> { None }
+	fn failed(self) -> bool { self.state == Some(false) }
 }
 
 // --- Orphan
@@ -41,26 +36,20 @@ pub struct ProcessProgOrphan {
 impl From<ProcessProgOrphan> for TaskSummary {
 	fn from(value: ProcessProgOrphan) -> Self {
 		Self {
-			total:   (value.state == Some(false)) as u32,
+			total:   value.failed() as u32,
 			success: 0,
-			failed:  (value.state == Some(false)) as u32,
+			failed:  value.failed() as u32,
 			percent: value.percent().map(Into::into),
 		}
 	}
 }
 
-impl ProcessProgOrphan {
-	pub fn cooked(self) -> bool { self.state == Some(true) }
+impl Progress for ProcessProgOrphan {
+	fn running(self) -> bool { self.state.is_none() }
 
-	pub fn running(self) -> bool { self.state.is_none() }
+	fn cooked(self) -> bool { self.state == Some(true) }
 
-	pub fn success(self) -> bool { self.cooked() }
-
-	pub fn failed(self) -> bool { self.state == Some(false) }
-
-	pub fn cleaned(self) -> Option<bool> { None }
-
-	pub fn percent(self) -> Option<f32> { None }
+	fn failed(self) -> bool { self.state == Some(false) }
 }
 
 // --- Bg
@@ -73,23 +62,17 @@ impl From<ProcessProgBg> for TaskSummary {
 	fn from(value: ProcessProgBg) -> Self {
 		Self {
 			total:   1,
-			success: (value.state == Some(true)) as u32,
-			failed:  (value.state == Some(false)) as u32,
+			success: value.success() as u32,
+			failed:  value.failed() as u32,
 			percent: value.percent().map(Into::into),
 		}
 	}
 }
 
-impl ProcessProgBg {
-	pub fn cooked(self) -> bool { self.state == Some(true) }
+impl Progress for ProcessProgBg {
+	fn running(self) -> bool { self.state.is_none() }
 
-	pub fn running(self) -> bool { self.state.is_none() }
+	fn cooked(self) -> bool { self.state == Some(true) }
 
-	pub fn success(self) -> bool { self.cooked() }
-
-	pub fn failed(self) -> bool { self.state == Some(false) }
-
-	pub fn cleaned(self) -> Option<bool> { None }
-
-	pub fn percent(self) -> Option<f32> { None }
+	fn failed(self) -> bool { self.state == Some(false) }
 }

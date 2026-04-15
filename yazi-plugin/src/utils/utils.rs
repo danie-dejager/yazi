@@ -17,7 +17,7 @@ pub fn compose(
 
 			// Call
 			b"emit" => Utils::emit(lua)?,
-			b"mgr_emit" => Utils::mgr_emit(lua)?,
+			b"exec" => Utils::exec(lua)?,
 
 			// Image
 			b"image_info" => Utils::image_info(lua)?,
@@ -50,6 +50,7 @@ pub fn compose(
 			b"spot_widgets" => Utils::spot_widgets(lua)?,
 
 			// Sync
+			b"co" => Utils::co(lua)?,
 			b"sync" => Utils::sync(lua)?,
 			b"async" => Utils::r#async(lua, isolate)?,
 			b"chan" => Utils::chan(lua)?,
@@ -80,6 +81,9 @@ pub fn compose(
 			b"group_name" => Utils::group_name(lua)?,
 			#[cfg(unix)]
 			b"host_name" => Utils::host_name(lua)?,
+
+			// Task
+			b"task" => Utils::task(lua)?,
 
 			_ => return Ok(Value::Nil),
 		}

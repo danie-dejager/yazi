@@ -1,49 +1,42 @@
-use std::{borrow::Cow, str::FromStr};
+use std::borrow::Cow;
 
 use mlua::{ExternalError, FromLua, IntoLua, Lua, Value};
 use serde::Deserialize;
+use strum::EnumString;
 use yazi_shared::{SStr, event::ActionCow, strand::AsStrand};
 
-#[derive(Debug)]
-pub struct CopyOpt {
+#[derive(Debug, Deserialize)]
+pub struct CopyForm {
+	#[serde(alias = "0")]
 	pub r#type:    SStr,
+	#[serde(default)]
 	pub separator: CopySeparator,
+	#[serde(default)]
 	pub hovered:   bool,
 }
 
-impl From<ActionCow> for CopyOpt {
-	fn from(mut a: ActionCow) -> Self {
-		Self {
-			r#type:    a.take_first().unwrap_or_default(),
-			separator: a.str("separator").parse().unwrap_or_default(),
-			hovered:   a.bool("hovered"),
-		}
-	}
+impl TryFrom<ActionCow> for CopyForm {
+	type Error = anyhow::Error;
+
+	fn try_from(a: ActionCow) -> Result<Self, Self::Error> { Ok(a.deserialize()?) }
 }
 
-impl FromLua for CopyOpt {
+impl FromLua for CopyForm {
 	fn from_lua(_: Value, _: &Lua) -> mlua::Result<Self> { Err("unsupported".into_lua_err()) }
 }
 
-impl IntoLua for CopyOpt {
+impl IntoLua for CopyForm {
 	fn into_lua(self, _: &Lua) -> mlua::Result<Value> { Err("unsupported".into_lua_err()) }
 }
 
 // --- Separator
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, EnumString, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum CopySeparator {
 	#[default]
 	Auto,
 	Unix,
-}
-
-impl FromStr for CopySeparator {
-	type Err = serde::de::value::Error;
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Self::deserialize(serde::de::value::StrDeserializer::new(s))
-	}
 }
 
 impl CopySeparator {

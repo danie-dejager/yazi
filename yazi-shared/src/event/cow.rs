@@ -1,9 +1,10 @@
 use std::{iter, ops::Deref};
 
 use anyhow::Result;
+use serde::de::DeserializeOwned;
 
 use super::Action;
-use crate::data::{Data, DataKey};
+use crate::{data::{Data, DataKey}, event::Replier};
 
 #[derive(Debug)]
 pub enum ActionCow {
@@ -23,7 +24,7 @@ impl Deref for ActionCow {
 }
 
 impl From<ActionCow> for () {
-	fn from(_: ActionCow) -> Self { () }
+	fn from(_: ActionCow) -> Self {}
 }
 
 impl From<Action> for ActionCow {
@@ -35,6 +36,16 @@ impl From<&'static Action> for ActionCow {
 }
 
 impl ActionCow {
+	pub fn deserialize<T>(self) -> Result<T, serde::de::value::Error>
+	where
+		T: DeserializeOwned,
+	{
+		match self {
+			Self::Owned(c) => T::deserialize(c),
+			Self::Borrowed(c) => T::deserialize(c),
+		}
+	}
+
 	pub fn take<'a, T>(&mut self, name: impl Into<DataKey>) -> Result<T>
 	where
 		T: TryFrom<Data> + TryFrom<&'a Data>,
@@ -101,6 +112,13 @@ impl ActionCow {
 		match self {
 			Self::Owned(c) => Box::new(c.take_any_iter()),
 			Self::Borrowed(_) => Box::new(iter::empty()),
+		}
+	}
+
+	pub fn take_replier(&mut self) -> Option<Replier> {
+		match self {
+			Self::Owned(c) => c.take_replier(),
+			Self::Borrowed(_) => None,
 		}
 	}
 }

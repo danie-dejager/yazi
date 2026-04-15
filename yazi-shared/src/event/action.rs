@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use hashbrown::HashMap;
 use serde::{Deserialize, de};
 
-use crate::{Layer, SStr, Source, data::{Data, DataAny, DataKey}};
+use crate::{Layer, SStr, Source, data::{Data, DataAny, DataKey}, event::Replier};
 
 #[derive(Clone, Debug, Default)]
 pub struct Action {
@@ -65,6 +65,27 @@ impl Action {
 		self
 	}
 
+	pub fn with_list<I>(mut self, name: impl Into<DataKey>, values: I) -> Self
+	where
+		I: IntoIterator,
+		I::Item: Into<Data>,
+	{
+		self.args.insert(name.into(), values.into_iter().map(Into::into).collect());
+		self
+	}
+
+	pub fn with_any(mut self, name: impl Into<DataKey>, data: impl DataAny) -> Self {
+		self.args.insert(name.into(), Data::Any(Box::new(data)));
+		self
+	}
+
+	pub fn with_opt(mut self, name: impl Into<DataKey>, value: Option<impl Into<Data>>) -> Self {
+		if let Some(value) = value {
+			self.args.insert(name.into(), value.into());
+		}
+		self
+	}
+
 	pub fn with_seq<I>(mut self, values: I) -> Self
 	where
 		I: IntoIterator,
@@ -76,8 +97,8 @@ impl Action {
 		self
 	}
 
-	pub fn with_any(mut self, name: impl Into<DataKey>, data: impl DataAny) -> Self {
-		self.args.insert(name.into(), Data::Any(Box::new(data)));
+	pub fn with_replier(mut self, tx: Replier) -> Self {
+		self.args.insert("replier".into(), Data::Any(Box::new(tx)));
 		self
 	}
 
@@ -97,6 +118,12 @@ impl Action {
 	pub fn str(&self, name: impl Into<DataKey>) -> &str { self.get(name).unwrap_or_default() }
 
 	pub fn bool(&self, name: impl Into<DataKey>) -> bool { self.get(name).unwrap_or(false) }
+
+	pub fn any<T: 'static>(&self, name: impl Into<DataKey>) -> Option<&T> {
+		self.args.get(&name.into())?.as_any()
+	}
+
+	pub fn replier(&self) -> Option<&Replier> { self.any("replier") }
 
 	pub fn first<'a, T>(&'a self) -> Result<T>
 	where
@@ -188,6 +215,8 @@ impl Action {
 	pub fn take_any_iter<T: 'static>(&mut self) -> impl Iterator<Item = T> {
 		(0..self.len()).filter_map(|i| self.args.remove(&DataKey::from(i))?.into_any())
 	}
+
+	pub fn take_replier(&mut self) -> Option<Replier> { self.take_any("replier") }
 
 	// Parse
 	pub fn parse_args<I>(words: I, last: Option<String>) -> Result<HashMap<DataKey, Data>>

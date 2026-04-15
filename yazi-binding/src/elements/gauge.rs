@@ -23,8 +23,13 @@ impl Gauge {
 
 		gauge.into_lua(lua)
 	}
+}
 
-	pub(super) fn render(self, rect: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+impl Widget for Gauge {
+	fn render(self, rect: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer)
+	where
+		Self: Sized,
+	{
 		let mut gauge = ratatui::widgets::Gauge::default()
 			.ratio(self.ratio)
 			.style(self.style)
@@ -35,6 +40,15 @@ impl Gauge {
 		}
 
 		gauge.render(rect, buf);
+	}
+}
+
+impl Widget for &Gauge {
+	fn render(self, rect: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer)
+	where
+		Self: Sized,
+	{
+		self.clone().render(rect, buf);
 	}
 }
 
@@ -61,8 +75,8 @@ impl UserData for Gauge {
 			Ok(ud)
 		});
 
-		methods.add_function_mut("label", |_, (ud, label): (AnyUserData, Value)| {
-			ud.borrow_mut::<Self>()?.label = Some(Span::try_from(label)?.0);
+		methods.add_function_mut("label", |_, (ud, label): (AnyUserData, Span)| {
+			ud.borrow_mut::<Self>()?.label = Some(label.0);
 			Ok(ud)
 		});
 

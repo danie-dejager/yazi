@@ -10,8 +10,9 @@ use yazi_config::{YAZI, opener::OpenerRule};
 use yazi_dds::Pubsub;
 use yazi_fs::{File, FilesOp, Splatter, max_common_root, path::skip_url, provider::{FileBuilder, Provider, local::{Gate, Local}}};
 use yazi_macro::{err, succ};
-use yazi_parser::VoidOpt;
-use yazi_proxy::{AppProxy, NotifyProxy, TasksProxy};
+use yazi_parser::VoidForm;
+use yazi_proxy::TasksProxy;
+use yazi_scheduler::{AppProxy, NotifyProxy};
 use yazi_shared::{data::Data, path::PathDyn, strand::{AsStrand, AsStrandJoin, Strand, StrandBuf, StrandLike}, terminal_clear, url::{AsUrl, UrlBuf, UrlCow, UrlLike}};
 use yazi_term::YIELD_TO_SUBPROCESS;
 use yazi_tty::TTY;
@@ -23,11 +24,11 @@ use crate::{Actor, Ctx};
 pub struct BulkRename;
 
 impl Actor for BulkRename {
-	type Options = VoidOpt;
+	type Form = VoidForm;
 
 	const NAME: &str = "bulk_rename";
 
-	fn act(cx: &mut Ctx, _: Self::Options) -> Result<Data> {
+	fn act(cx: &mut Ctx, _: Self::Form) -> Result<Data> {
 		let Some(opener) = Self::opener() else {
 			succ!(NotifyProxy::push_warn("Bulk rename", "No text opener found"));
 		};
@@ -42,8 +43,10 @@ impl Actor for BulkRename {
 			selected.iter().enumerate().map(|(i, u)| Tuple::new(i, skip_url(u, root))).collect();
 
 		let cwd = cx.cwd().clone();
+		let batcher = cx.core.mgr.batcher.clone();
 		tokio::spawn(async move {
 			let tmp = YAZI.preview.tmpfile("bulk");
+
 			Gate::default()
 				.write(true)
 				.create_new(true)
@@ -54,10 +57,13 @@ impl Actor for BulkRename {
 
 			defer! {
 				let tmp = tmp.clone();
+				batcher.drain(&tmp);
 				tokio::spawn(async move {
 					Local::regular(&tmp).remove_file().await
 				});
 			}
+
+			batcher.prime(&tmp);
 			TasksProxy::process_exec(
 				cwd.into(),
 				Splatter::new(&[UrlCow::default(), tmp.as_url().into()]).splat(&opener.run),
@@ -79,7 +85,8 @@ impl Actor for BulkRename {
 				.map(|(i, s)| Tuple::new(i, s))
 				.collect();
 
-			Self::r#do(root, old, new, selected).await
+			let decision = batcher.drain(&tmp);
+			Self::r#do(root, old, new, selected, decision).await
 		});
 		succ!();
 	}
@@ -91,6 +98,7 @@ impl BulkRename {
 		old: Vec<Tuple>,
 		new: Vec<Tuple>,
 		selected: Vec<UrlBuf>,
+		decision: Option<bool>,
 	) -> Result<()> {
 		terminal_clear(TTY.writer())?;
 		if old.len() != new.len() {
@@ -108,18 +116,7 @@ impl BulkRename {
 			return Ok(());
 		}
 
-		{
-			let mut w = TTY.lockout();
-			for (old, new) in &todo {
-				writeln!(w, "{} -> {}", old.display(), new.display())?;
-			}
-			write!(w, "Continue to rename? (y/N): ")?;
-			w.flush()?;
-		}
-
-		let mut buf = [0; 10];
-		_ = TTY.reader().read(&mut buf)?;
-		if buf[0] != b'y' && buf[0] != b'Y' {
+		if !Self::ask_continue(&todo, decision)? {
 			return Ok(());
 		}
 
@@ -163,6 +160,25 @@ impl BulkRename {
 
 	fn replace_url(url: &UrlBuf, take: usize, rep: &StrandBuf) -> Result<UrlBuf> {
 		Ok(url.try_replace(take, PathDyn::with(url.kind(), rep)?)?.into_owned())
+	}
+
+	fn ask_continue(todo: &[(Tuple, Tuple)], decision: Option<bool>) -> Result<bool> {
+		if let Some(decision) = decision {
+			return Ok(decision);
+		}
+
+		{
+			let mut w = TTY.lockout();
+			for (old, new) in todo {
+				writeln!(w, "{} -> {}", old.display(), new.display())?;
+			}
+			write!(w, "Continue to rename? (y/N): ")?;
+			w.flush()?;
+		}
+
+		let mut buf = [0; 10];
+		_ = TTY.reader().read(&mut buf)?;
+		Ok(buf[0] == b'y' || buf[0] == b'Y')
 	}
 
 	async fn output_failed(failed: Vec<(Tuple, Tuple, anyhow::Error)>) -> Result<()> {

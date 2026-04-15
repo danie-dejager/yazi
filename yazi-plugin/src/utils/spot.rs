@@ -1,7 +1,7 @@
 use mlua::{AnyUserData, Function, Lua, Table};
 use yazi_binding::elements::{Edge, Renderable};
 use yazi_config::THEME;
-use yazi_parser::mgr::{SpotLock, UpdateSpottedOpt};
+use yazi_core::spot::SpotLock;
 use yazi_proxy::MgrProxy;
 
 use super::Utils;
@@ -29,18 +29,18 @@ impl Utils {
 				}),
 				Renderable::Table(Box::new(table)),
 			];
-			MgrProxy::update_spotted(UpdateSpottedOpt { lock });
+			MgrProxy::update_spotted(lock);
 
 			Ok(())
 		})
 	}
 
 	pub(super) fn spot_widgets(lua: &Lua) -> mlua::Result<Function> {
-		lua.create_function(|_, (t, widgets): (Table, Vec<AnyUserData>)| {
+		lua.create_function(|_, (t, widgets): (Table, Vec<Renderable>)| {
 			let mut lock = SpotLock::try_from(t)?;
-			lock.data = widgets.into_iter().map(Renderable::try_from).collect::<mlua::Result<_>>()?;
+			lock.data = widgets;
 
-			MgrProxy::update_spotted(UpdateSpottedOpt { lock });
+			MgrProxy::update_spotted(lock);
 			Ok(())
 		})
 	}

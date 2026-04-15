@@ -1,7 +1,8 @@
 use anyhow::Result;
 use mlua::{ErrorContext, ExternalError, IntoLua, Value};
 use yazi_binding::runtime_scope;
-use yazi_dds::{LOCAL, spark::{Spark, SparkKind}};
+use yazi_dds::LOCAL;
+use yazi_parser::spark::{Spark, SparkKind};
 use yazi_plugin::LUA;
 
 use crate::{Ctx, lives::Lives};
@@ -11,7 +12,7 @@ pub struct Preflight;
 impl Preflight {
 	pub fn act<'a>(cx: &mut Ctx, opt: (SparkKind, Spark<'a>)) -> Result<Spark<'a>> {
 		let kind = opt.0;
-		let Some(handlers) = LOCAL.read().get(kind.as_ref()).filter(|&m| !m.is_empty()).cloned() else {
+		let Some(handlers) = LOCAL.read().get(kind.into()).filter(|&m| !m.is_empty()).cloned() else {
 			return Ok(opt.1);
 		};
 

@@ -1,9 +1,10 @@
-use std::mem;
+use std::{io, mem};
 
 use anyhow::Result;
+use yazi_core::cmp::{CmpItem, CmpOpt};
 use yazi_fs::{path::clean_url, provider::{DirReader, FileHolder}};
 use yazi_macro::{act, render, succ};
-use yazi_parser::cmp::{CmpItem, ShowOpt, TriggerOpt};
+use yazi_parser::cmp::TriggerForm;
 use yazi_proxy::CmpProxy;
 use yazi_shared::{AnyAsciiChar, BytePredictor, data::Data, natsort, path::{AsPath, PathBufDyn, PathLike}, scheme::{SchemeCow, SchemeLike}, strand::{AsStrand, StrandLike}, url::{UrlBuf, UrlCow, UrlLike}};
 use yazi_vfs::provider;
@@ -13,30 +14,28 @@ use crate::{Actor, Ctx};
 pub struct Trigger;
 
 impl Actor for Trigger {
-	type Options = TriggerOpt;
+	type Form = TriggerForm;
 
 	const NAME: &str = "trigger";
 
-	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
-		let cmp = &mut cx.cmp;
-		if let Some(t) = opt.ticket {
-			if t < cmp.ticket {
-				succ!();
-			}
-			cmp.ticket = t;
+	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
+		if form.ticket.is_some_and(|t| t != cx.cmp.ticket) {
+			succ!();
+		} else if form.ticket.is_none() {
+			cx.cmp.ticket = cx.input.ticket.current();
 		}
 
-		let Some((parent, word)) = Self::split_url(&opt.word) else {
+		cx.cmp.handle.take().map(|h| h.abort());
+		let Some((parent, word)) = Self::split_url(&form.word) else {
 			return act!(cmp:close, cx, false);
 		};
 
-		if cmp.caches.contains_key(&parent) {
-			let ticket = cmp.ticket;
-			return act!(cmp:show, cx, ShowOpt { cache: vec![], cache_name: parent, word, ticket });
+		let ticket = cx.cmp.ticket;
+		if cx.cmp.caches.contains_key(&parent) {
+			return act!(cmp:show, cx, CmpOpt { cache: vec![], cache_name: parent, word, ticket });
 		}
 
-		let ticket = cmp.ticket;
-		tokio::spawn(async move {
+		cx.cmp.handle = Some(tokio::spawn(async move {
 			let mut dir = provider::read_dir(&parent).await?;
 			let mut cache = vec![];
 
@@ -55,13 +54,13 @@ impl Actor for Trigger {
 			if !cache.is_empty() {
 				cache
 					.sort_unstable_by(|a, b| natsort(a.name.encoded_bytes(), b.name.encoded_bytes(), false));
-				CmpProxy::show(ShowOpt { cache, cache_name: parent, word, ticket });
+				CmpProxy::show(CmpOpt { cache, cache_name: parent, word, ticket });
 			}
 
-			Ok::<_, anyhow::Error>(())
-		});
+			Ok::<_, io::Error>(())
+		}));
 
-		succ!(render!(mem::replace(&mut cmp.visible, false)));
+		succ!(render!(mem::replace(&mut cx.cmp.visible, false)));
 	}
 }
 

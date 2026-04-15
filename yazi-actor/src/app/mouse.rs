@@ -6,7 +6,7 @@ use yazi_actor::lives::Lives;
 use yazi_binding::runtime_scope;
 use yazi_config::YAZI;
 use yazi_macro::succ;
-use yazi_parser::app::MouseOpt;
+use yazi_parser::app::MouseForm;
 use yazi_plugin::LUA;
 use yazi_shared::data::Data;
 
@@ -15,17 +15,17 @@ use crate::{Actor, Ctx};
 pub struct Mouse;
 
 impl Actor for Mouse {
-	type Options = MouseOpt;
+	type Form = MouseForm;
 
 	const NAME: &str = "mouse";
 
-	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
-		let event = yazi_binding::MouseEvent::from(opt.event);
+	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
+		let event = yazi_binding::MouseEvent::from(form.event);
 
 		let Some(size) = cx.term.as_ref().and_then(|t| t.size().ok()) else { succ!() };
 		let area = yazi_binding::elements::Rect::from(size);
 
-		let result = Lives::scope(&cx.core, move || {
+		let result = Lives::scope(cx.core, move || {
 			let root = runtime_scope!(LUA, "root", {
 				LUA.globals().raw_get::<Table>("Root")?.call_method::<Table>("new", area)
 			})?;

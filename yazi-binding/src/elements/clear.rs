@@ -1,4 +1,4 @@
-use mlua::{IntoLua, Lua, MetaMethod, Table, UserData, Value};
+use mlua::{IntoLua, Lua, MetaMethod, Table, UserData, UserDataMethods, Value};
 use ratatui::widgets::Widget;
 
 use super::Area;
@@ -17,14 +17,28 @@ impl Clear {
 
 		clear.into_lua(lua)
 	}
+}
 
-	pub(super) fn render(self, rect: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+impl Widget for Clear {
+	fn render(self, rect: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer)
+	where
+		Self: Sized,
+	{
+		(&self).render(rect, buf);
+	}
+}
+
+impl Widget for &Clear {
+	fn render(self, rect: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer)
+	where
+		Self: Sized,
+	{
 		yazi_widgets::Clear.render(rect, buf);
 	}
 }
 
 impl UserData for Clear {
-	fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+	fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
 		crate::impl_area_method!(methods);
 	}
 }

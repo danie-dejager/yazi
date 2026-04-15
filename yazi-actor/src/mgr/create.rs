@@ -2,27 +2,28 @@ use anyhow::{Result, bail};
 use yazi_config::popup::{ConfirmCfg, InputCfg};
 use yazi_fs::{File, FilesOp};
 use yazi_macro::{ok_or_not_found, succ};
-use yazi_parser::mgr::CreateOpt;
+use yazi_parser::mgr::CreateForm;
 use yazi_proxy::{ConfirmProxy, InputProxy, MgrProxy};
 use yazi_shared::{data::Data, url::{UrlBuf, UrlLike}};
 use yazi_vfs::{VfsFile, maybe_exists, provider};
 use yazi_watcher::WATCHER;
+use yazi_widgets::input::InputEvent;
 
 use crate::{Actor, Ctx};
 
 pub struct Create;
 
 impl Actor for Create {
-	type Options = CreateOpt;
+	type Form = CreateForm;
 
 	const NAME: &str = "create";
 
-	fn act(cx: &mut Ctx, opt: Self::Options) -> Result<Data> {
+	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
 		let cwd = cx.cwd().to_owned();
-		let mut input = InputProxy::show(InputCfg::create(opt.dir));
+		let mut input = InputProxy::show(InputCfg::create(form.dir));
 
 		tokio::spawn(async move {
-			let Some(Ok(name)) = input.recv().await else { return };
+			let Some(InputEvent::Submit(name)) = input.recv().await else { return };
 			if name.is_empty() {
 				return;
 			}
@@ -31,14 +32,14 @@ impl Actor for Create {
 				return;
 			};
 
-			if !opt.force
+			if !form.force
 				&& maybe_exists(&new).await
 				&& !ConfirmProxy::show(ConfirmCfg::overwrite(&new)).await
 			{
 				return;
 			}
 
-			_ = Self::r#do(new, opt.dir || name.ends_with('/') || name.ends_with('\\')).await;
+			_ = Self::r#do(new, form.dir || name.ends_with('/') || name.ends_with('\\')).await;
 		});
 		succ!();
 	}
