@@ -4,7 +4,7 @@ use mlua::Lua;
 use yazi_binding::{Runtime, runtime_scope};
 use yazi_boot::BOOT;
 use yazi_macro::plugin_preset as preset;
-use yazi_shared::RoCell;
+use yazi_shim::cell::RoCell;
 
 pub static LUA: RoCell<Lua> = RoCell::new();
 
@@ -47,11 +47,13 @@ fn stage_1(lua: &Lua) -> Result<()> {
 	lua.load(preset!("components/linemode")).set_name("linemode.lua").exec()?;
 
 	lua.load(preset!("components/marker")).set_name("marker.lua").exec()?;
+	lua.load(preset!("components/markers")).set_name("markers.lua").exec()?;
 	lua.load(preset!("components/modal")).set_name("modal.lua").exec()?;
 	lua.load(preset!("components/parent")).set_name("parent.lua").exec()?;
 	lua.load(preset!("components/preview")).set_name("preview.lua").exec()?;
 	lua.load(preset!("components/progress")).set_name("progress.lua").exec()?;
 	lua.load(preset!("components/rail")).set_name("rail.lua").exec()?;
+	lua.load(preset!("components/rails")).set_name("rails.lua").exec()?;
 	lua.load(preset!("components/root")).set_name("root.lua").exec()?;
 	lua.load(preset!("components/status")).set_name("status.lua").exec()?;
 	lua.load(preset!("components/tab")).set_name("tab.lua").exec()?;

@@ -31,19 +31,26 @@ function M:spot(job)
 end
 
 function M:spot_base(job)
-	local cha = job.file.cha
-	local spotter = rt.plugin.spotter(job.file, job.mime)
-	local previewer = rt.plugin.previewer(job.file, job.mime)
-	local fetchers = rt.plugin.fetchers(job.file, job.mime)
-	local preloaders = rt.plugin.preloaders(job.file, job.mime)
+	local cha, pair = job.file.cha, { file = job.file, mime = job.mime }
+	local spotter, previewer, fetchers, preloaders = nil, nil, {}, {}
 
-	for i, v in ipairs(fetchers) do
-		fetchers[i] = v.cmd
+	for _, v in pairs(rt.plugin.spotters:match(pair)) do
+		spotter = v
+		break
+	end
+
+	for _, v in pairs(rt.plugin.previewers:match(pair)) do
+		previewer = v
+		break
+	end
+
+	for _, v in pairs(rt.plugin.fetchers:match(pair)) do
+		fetchers[#fetchers + 1] = v.name
 	end
 	fetchers = #fetchers ~= 0 and fetchers or { "-" }
 
-	for i, v in ipairs(preloaders) do
-		preloaders[i] = v.cmd
+	for _, v in pairs(rt.plugin.preloaders:match(pair)) do
+		preloaders[#preloaders + 1] = v.name
 	end
 	preloaders = #preloaders ~= 0 and preloaders or { "-" }
 
@@ -55,8 +62,8 @@ function M:spot_base(job)
 		ui.Row {},
 
 		ui.Row({ "Plugins" }):style(ui.Style():fg("green")),
-		ui.Row { "  Spotter:", spotter and spotter.cmd or "-" },
-		ui.Row { "  Previewer:", previewer and previewer.cmd or "-" },
+		ui.Row { "  Spotter:", spotter and spotter.name or "-" },
+		ui.Row { "  Previewer:", previewer and previewer.name or "-" },
 		ui.Row({ "  Fetchers:", fetchers }):height(#fetchers),
 		ui.Row({ "  Preloaders:", preloaders }):height(#preloaders),
 	}

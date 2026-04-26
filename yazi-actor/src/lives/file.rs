@@ -111,7 +111,7 @@ impl UserData for File {
 		methods.add_method("style", |lua, me, ()| {
 			lua.named_registry_value::<AnyUserData>("cx")?.borrow_scoped(|core: &yazi_core::Core| {
 				let mime = core.mgr.mimetype.get(&me.url).unwrap_or_default();
-				THEME.filetype.iter().find(|&x| x.matches(me, mime)).map(|x| Style::from(x.style))
+				THEME.filetype.match_style(me, mime).map(Style::from)
 			})
 		});
 		methods.add_method("is_yanked", |lua, me, ()| {

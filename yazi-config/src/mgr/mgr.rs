@@ -1,12 +1,13 @@
-use anyhow::{Result, bail};
-use serde::Deserialize;
-use yazi_codegen::DeserializeOver2;
+use anyhow::Result;
+use arc_swap::ArcSwap;
+use serde::{Deserialize, Deserializer, de};
+use yazi_codegen::{DeserializeOver, DeserializeOver2};
 use yazi_fs::{SortBy, SortFallback};
-use yazi_shared::SyncCell;
+use yazi_shim::{arc_swap::IntoPointee, cell::SyncCell};
 
 use super::{MgrRatio, MouseEvents};
 
-#[derive(Debug, Deserialize, DeserializeOver2)]
+#[derive(Debug, Deserialize, DeserializeOver, DeserializeOver2)]
 pub struct Mgr {
 	pub ratio: SyncCell<MgrRatio>,
 
@@ -19,19 +20,22 @@ pub struct Mgr {
 	pub sort_fallback:  SyncCell<SortFallback>,
 
 	// Display
-	pub linemode:     String,
+	#[serde(deserialize_with = "deserialize_linemode")]
+	pub linemode:     ArcSwap<String>,
 	pub show_hidden:  SyncCell<bool>,
 	pub show_symlink: SyncCell<bool>,
 	pub scrolloff:    SyncCell<u8>,
 	pub mouse_events: SyncCell<MouseEvents>,
 }
 
-impl Mgr {
-	pub(crate) fn reshape(self) -> Result<Self> {
-		if self.linemode.is_empty() || self.linemode.len() > 20 {
-			bail!("[mgr].linemode must be between 1 and 20 characters.");
-		}
-
-		Ok(self)
+fn deserialize_linemode<'de, D>(deserializer: D) -> Result<ArcSwap<String>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s = String::deserialize(deserializer)?;
+	if s.is_empty() || s.len() > 20 {
+		return Err(de::Error::custom("linemode must be between 1 and 20 characters."));
 	}
+
+	Ok(s.into_pointee())
 }

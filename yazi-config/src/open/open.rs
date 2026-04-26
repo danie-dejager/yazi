@@ -1,16 +1,18 @@
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 use anyhow::Result;
-use indexmap::IndexSet;
+use indexmap::IndexMap;
 use serde::Deserialize;
 use yazi_codegen::DeserializeOver2;
+use yazi_fs::{File, cha::ChaType};
 use yazi_shared::url::AsUrl;
+use yazi_shim::toml::DeserializeOverHook;
 
-use crate::{Preset, open::OpenRule};
+use crate::{mix, open::{OpenRule, OpenRules}};
 
 #[derive(Default, Deserialize, DeserializeOver2)]
 pub struct Open {
-	rules:         Vec<OpenRule>,
+	rules:         OpenRules,
 	#[serde(default)]
 	prepend_rules: Vec<OpenRule>,
 	#[serde(default)]
@@ -18,59 +20,43 @@ pub struct Open {
 }
 
 impl Deref for Open {
-	type Target = Vec<OpenRule>;
+	type Target = OpenRules;
 
 	fn deref(&self) -> &Self::Target { &self.rules }
 }
 
 impl Open {
-	pub fn all<'a, 'b, U, M>(&'a self, url: U, mime: M) -> impl Iterator<Item = &'a str> + 'b
+	pub fn match_dummy<U, M>(&self, url: U, mime: M) -> Option<Arc<OpenRule>>
 	where
-		'a: 'b,
-		U: AsUrl + 'b,
-		M: AsRef<str> + 'b,
-	{
-		let is_dir = mime.as_ref().starts_with("folder/");
-		self
-			.rules
-			.iter()
-			.find(move |&r| {
-				r.mime.as_ref().is_some_and(|p| p.match_mime(&mime))
-					|| r.url.as_ref().is_some_and(|p| p.match_url(url.as_url(), is_dir))
-			})
-			.into_iter()
-			.flat_map(|r| &r.r#use)
-			.map(String::as_str)
-	}
-
-	pub fn common<'a, 'b, U, M>(&'a self, targets: &'b [(U, M)]) -> IndexSet<&'a str>
-	where
-		&'b U: AsUrl,
+		U: AsUrl,
 		M: AsRef<str>,
 	{
-		let each: Vec<IndexSet<&str>> = targets
-			.iter()
-			.map(|(u, m)| self.all(u, m).collect::<IndexSet<_>>())
-			.filter(|s| !s.is_empty())
-			.collect();
+		let mime = mime.as_ref();
+		let file = File::from_dummy(
+			url.as_url().to_owned(),
+			Some(if mime.starts_with("folder/") { ChaType::Dir } else { ChaType::File }),
+		);
 
-		let mut flat: IndexSet<_> = each.iter().flatten().copied().collect();
-		flat.retain(|use_| each.iter().all(|e| e.contains(use_)));
-		flat
+		self.matches(&file, mime)
+	}
+
+	pub fn match_common(&self, targets: &[(File, &str)]) -> impl Iterator<Item = Arc<OpenRule>> {
+		let mut seen: IndexMap<Arc<OpenRule>, usize> = IndexMap::new();
+		for (file, mime) in targets {
+			if let Some(rule) = self.matches(file, mime) {
+				*seen.entry(rule).or_default() += 1;
+			}
+		}
+
+		seen.into_iter().filter(|&(_, count)| count == targets.len()).map(|(rule, _)| rule)
 	}
 }
 
-impl Open {
-	pub(crate) fn reshape(self) -> Result<Self> {
-		let any_file = self.append_rules.iter().any(|r| r.any_file());
-		let any_dir = self.append_rules.iter().any(|r| r.any_dir());
+impl DeserializeOverHook for Open {
+	fn deserialize_over_hook(self) -> Result<Self, toml::de::Error> {
+		let rules: Vec<Arc<OpenRule>> =
+			mix(self.prepend_rules, self.rules.unwrap_unchecked(), self.append_rules);
 
-		let it =
-			self.rules.into_iter().filter(|r| !(any_file && r.any_file() || any_dir && r.any_dir()));
-
-		Ok(Self {
-			rules: Preset::mix(self.prepend_rules, it, self.append_rules).collect(),
-			..Default::default()
-		})
+		Ok(Self { rules: rules.into(), ..Default::default() })
 	}
 }

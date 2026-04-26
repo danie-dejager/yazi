@@ -1,65 +1,41 @@
-use std::fmt;
+use std::hash::{Hash, Hasher};
 
-use serde::{Deserialize, Deserializer, de::{self, Visitor}};
+use serde::Deserialize;
+use serde_with::{OneOrMany, formats::PreferOne, serde_as};
+use yazi_codegen::DeserializeOver2;
+use yazi_shared::Id;
 
-use crate::pattern::Pattern;
+use crate::{Mixable, Pattern, Selectable, Selector, plugin::open_rule_id};
 
-#[derive(Debug, Deserialize)]
+#[serde_as]
+#[derive(Clone, Debug, Deserialize, DeserializeOver2)]
 pub struct OpenRule {
-	pub url:   Option<Pattern>,
-	pub mime:  Option<Pattern>,
-	#[serde(deserialize_with = "OpenRule::deserialize")]
-	pub r#use: Vec<String>,
+	#[serde(skip, default = "open_rule_id")]
+	pub id:       Id,
+	#[serde(flatten)]
+	pub selector: Selector,
+	#[serde_as(as = "OneOrMany<_, PreferOne>")]
+	pub r#use:    Vec<String>,
 }
 
-impl OpenRule {
-	#[inline]
-	pub fn any_file(&self) -> bool { self.url.as_ref().is_some_and(|p| p.any_file()) }
-
-	#[inline]
-	pub fn any_dir(&self) -> bool { self.url.as_ref().is_some_and(|p| p.any_dir()) }
+impl PartialEq for OpenRule {
+	fn eq(&self, other: &Self) -> bool { self.id == other.id }
 }
 
-impl OpenRule {
-	fn deserialize<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		struct UseVisitor;
+impl Eq for OpenRule {}
 
-		impl<'de> Visitor<'de> for UseVisitor {
-			type Value = Vec<String>;
+impl Hash for OpenRule {
+	fn hash<H: Hasher>(&self, state: &mut H) { self.id.hash(state); }
+}
 
-			fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-				formatter.write_str("a string, or array of strings")
-			}
+impl Selectable for OpenRule {
+	fn url_pat(&self) -> Option<&Pattern> { self.selector.url_pat() }
 
-			fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-			where
-				A: de::SeqAccess<'de>,
-			{
-				let mut uses = Vec::with_capacity(seq.size_hint().unwrap_or(0));
-				while let Some(use_) = seq.next_element::<String>()? {
-					uses.push(use_);
-				}
-				Ok(uses)
-			}
+	fn mime_pat(&self) -> Option<&Pattern> { self.selector.mime_pat() }
+}
 
-			fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-			where
-				E: de::Error,
-			{
-				Ok(vec![value.to_owned()])
-			}
+impl Mixable for OpenRule {
+	fn any_file(&self) -> bool { self.selector.any_file() }
 
-			fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-			where
-				E: de::Error,
-			{
-				Ok(vec![v])
-			}
-		}
-
-		deserializer.deserialize_any(UseVisitor)
-	}
+	fn any_dir(&self) -> bool { self.selector.any_dir() }
 }

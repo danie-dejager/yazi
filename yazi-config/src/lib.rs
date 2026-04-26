@@ -1,10 +1,10 @@
 yazi_macro::mod_pub!(keymap mgr open opener plugin popup preview tasks theme which vfs);
 
-yazi_macro::mod_flat!(icon layout pattern platform preset priority style utils yazi);
+yazi_macro::mod_flat!(icon layout mixing pattern platform preset priority selectable selector style utils yazi);
 
 use std::io::{Read, Write};
 
-use yazi_shared::{RoCell, SyncCell};
+use yazi_shim::{cell::{RoCell, SyncCell}, toml::{DeserializeOver, DeserializeOverWith}};
 use yazi_tty::TTY;
 
 pub static YAZI: RoCell<yazi::Yazi> = RoCell::new();
@@ -29,8 +29,8 @@ fn try_init(merge: bool) -> anyhow::Result<()> {
 		keymap = keymap.deserialize_over(&keymap::Keymap::read()?)?;
 	}
 
-	YAZI.init(yazi.reshape()?);
-	KEYMAP.init(keymap.reshape()?);
+	YAZI.init(yazi);
+	KEYMAP.init(keymap);
 	Ok(())
 }
 
@@ -43,6 +43,11 @@ pub fn init_flavor(light: bool) -> anyhow::Result<()> {
 }
 
 fn try_init_flavor(light: bool, merge: bool) -> anyhow::Result<()> {
+	THEME.init(build_flavor(light, merge)?);
+	Ok(())
+}
+
+pub fn build_flavor(light: bool, merge: bool) -> anyhow::Result<theme::Theme> {
 	let mut preset = Preset::theme(light)?;
 
 	if merge {
@@ -52,11 +57,13 @@ fn try_init_flavor(light: bool, merge: bool) -> anyhow::Result<()> {
 		let flavor_str = theme::Flavor::from_theme(&theme, &theme_str)?.read(light)?;
 
 		preset = preset.deserialize_over(&flavor_str)?;
-		preset = error_with_input(preset.deserialize_over_with(theme), &theme_str)?;
+		preset = error_with_input(
+			preset.deserialize_over_with(toml::de::Deserializer::from(theme)),
+			&theme_str,
+		)?;
 	}
 
-	THEME.init(preset.reshape(light)?);
-	Ok(())
+	Ok(preset.reshape(light)?)
 }
 
 fn wait_for_key(e: anyhow::Error) -> anyhow::Result<()> {

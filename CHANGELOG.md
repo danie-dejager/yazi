@@ -17,7 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Custom tab name ([#3666])
 - New `--in` for `search` action to set search directory ([#3696])
 - Hover cursor over the new file after copying/cutting/linking/hardlinking/extracting ([#3846], [#3854])
+- Drag-resize panes with mouse ([#3890])
 - Multi-file spotter ([#3733])
+- New `app:theme` action that hot-reload user themes/flavors ([#3906])
+- Dynamic open/opener Lua API ([#3901])
+- Dynamic previewer Lua API ([#3891])
 - Vim-like `lua` action that runs an inline Lua snippet ([#3813])
 - Certificate authentication for SFTP VFS provider ([#3716])
 - New `hovered` condition specifying different icons for hovered files ([#3728])
@@ -53,6 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Fixed
 
 - Chafa v1.18.1 causes random ghost keypresses when previewing images ([#3678])
+- `paste --force` doesn't work on existing read-only files with the same name ([#3894])
 - Be a little defensive while parsing the output of `7zz -ba` ([#3744])
 - Make `ya pkg` ignore default remote name in user Git config ([#3648])
 - Archive extraction fails for target paths with non-ASCII characters on Windows ([#3607])
@@ -1699,3 +1704,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3846]: https://github.com/sxyazi/yazi/pull/3846
 [#3854]: https://github.com/sxyazi/yazi/pull/3854
 [#3862]: https://github.com/sxyazi/yazi/pull/3862
+[#3890]: https://github.com/sxyazi/yazi/pull/3890
+[#3891]: https://github.com/sxyazi/yazi/pull/3891
+[#3894]: https://github.com/sxyazi/yazi/pull/3894
+[#3901]: https://github.com/sxyazi/yazi/pull/3901
+[#3906]: https://github.com/sxyazi/yazi/pull/3906

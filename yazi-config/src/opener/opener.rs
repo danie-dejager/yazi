@@ -1,69 +1,85 @@
-use std::{mem, ops::Deref};
+use std::{mem, ops::Deref, sync::Arc};
 
-use anyhow::Result;
+use arc_swap::ArcSwap;
 use hashbrown::HashMap;
-use indexmap::IndexSet;
-use serde::{Deserialize, de::IntoDeserializer};
-use toml::{Spanned, de::DeTable};
-use yazi_codegen::DeserializeOver;
+use serde::{Deserialize, Deserializer};
+use yazi_shim::{arc_swap::IntoPointee, toml::{DeserializeOverHook, DeserializeOverWith}};
 
-use super::OpenerRule;
+use super::{OpenerRule, OpenerRules};
+use crate::{open::OpenRule, opener::OpenerRuleMatcher};
 
-#[derive(Debug, Deserialize, DeserializeOver)]
-pub struct Opener(HashMap<String, Vec<OpenerRule>>);
+#[derive(Debug, Deserialize)]
+pub struct Opener(ArcSwap<HashMap<String, Arc<OpenerRules>>>);
 
 impl Deref for Opener {
-	type Target = HashMap<String, Vec<OpenerRule>>;
+	type Target = ArcSwap<HashMap<String, Arc<OpenerRules>>>;
 
 	fn deref(&self) -> &Self::Target { &self.0 }
 }
 
 impl Opener {
-	pub fn all<'a, I>(&self, uses: I) -> impl Iterator<Item = &OpenerRule>
-	where
-		I: Iterator<Item = &'a str>,
-	{
-		uses.flat_map(|use_| self.get(use_)).flatten()
+	pub fn all(&self, open: Arc<OpenRule>) -> impl Iterator<Item = Arc<OpenerRule>> + use<> {
+		let inner = self.0.load_full();
+		(0..open.r#use.len())
+			.filter_map(move |i| inner.get(&open.r#use[i]).cloned())
+			.flat_map(|rules| OpenerRuleMatcher::from(&*rules))
 	}
 
-	pub fn first<'a, I>(&self, uses: I) -> Option<&OpenerRule>
-	where
-		I: Iterator<Item = &'a str>,
-	{
-		uses.flat_map(|use_| self.get(use_)).flatten().next()
+	pub fn first(&self, open: &OpenRule) -> Option<Arc<OpenerRule>> {
+		let inner = self.0.load();
+		open
+			.r#use
+			.iter()
+			.filter_map(|name| inner.get(name))
+			.find_map(|rules| rules.load().first().cloned())
 	}
 
-	pub fn block<'a, I>(&self, uses: I) -> Option<&OpenerRule>
-	where
-		I: Iterator<Item = &'a str>,
-	{
-		uses.flat_map(|use_| self.get(use_)).flatten().find(|&o| o.block)
+	pub fn block(&self, open: &OpenRule) -> Option<Arc<OpenerRule>> {
+		let inner = self.0.load();
+		open
+			.r#use
+			.iter()
+			.filter_map(|name| inner.get(name))
+			.find_map(|rules| rules.load().iter().find(|r| r.block).cloned())
+	}
+
+	pub fn insert(&self, name: &str, rules: &Arc<OpenerRules>) {
+		self.0.rcu(|inner| {
+			let mut next = HashMap::clone(inner);
+			next.insert(name.to_owned(), rules.clone());
+			next
+		});
+	}
+
+	pub fn remove(&self, name: &str) {
+		self.0.rcu(|inner| {
+			let mut next = HashMap::clone(inner);
+			next.remove(name);
+			next
+		});
+	}
+
+	pub(crate) fn unwrap_unchecked(self) -> HashMap<String, Arc<OpenerRules>> {
+		Arc::try_unwrap(self.0.into_inner()).expect("unique opener arc")
 	}
 }
 
-impl Opener {
-	pub(crate) fn reshape(mut self) -> Result<Self> {
-		for rules in self.0.values_mut() {
-			*rules = mem::take(rules)
-				.into_iter()
-				.filter(|r| r.r#for.matches())
-				.map(|r| r.reshape())
-				.collect::<Result<IndexSet<_>>>()?
-				.into_iter()
-				.collect();
+impl DeserializeOverHook for Opener {
+	fn deserialize_over_hook(self) -> Result<Self, toml::de::Error> {
+		let mut inner = self.unwrap_unchecked();
+		for mut rules in inner.values_mut() {
+			*rules = Arc::try_unwrap(mem::take(&mut rules))
+				.expect("unique opener value arc")
+				.deserialize_over_hook()?
+				.into();
 		}
 
-		Ok(self)
+		Ok(Self(inner.into_pointee()))
 	}
+}
 
-	pub(crate) fn deserialize_over_with<'de>(
-		mut self,
-		table: Spanned<DeTable<'de>>,
-	) -> Result<Self, toml::de::Error> {
-		for (key, value) in table.into_inner() {
-			self.0.insert(key.into_inner().into_owned(), <_>::deserialize(value.into_deserializer())?);
-		}
-
-		Ok(self)
+impl DeserializeOverWith for Opener {
+	fn deserialize_over_with<'de, D: Deserializer<'de>>(self, de: D) -> Result<Self, D::Error> {
+		Ok(Self(self.0.deserialize_over_with(de)?))
 	}
 }

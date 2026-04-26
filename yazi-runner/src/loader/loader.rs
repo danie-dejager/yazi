@@ -7,7 +7,8 @@ use parking_lot::RwLock;
 use yazi_boot::BOOT;
 use yazi_fs::provider::local::Local;
 use yazi_macro::plugin_preset as preset;
-use yazi_shared::{BytesExt, LOG_LEVEL, RoCell};
+use yazi_shared::{BytesExt, LOG_LEVEL};
+use yazi_shim::cell::RoCell;
 
 use super::Chunk;
 
@@ -59,11 +60,13 @@ impl Default for Loader {
 			("header".to_owned(), [][..].into()),
 			("linemode".to_owned(), [][..].into()),
 			("marker".to_owned(), [][..].into()),
+			("markers".to_owned(), [][..].into()),
 			("modal".to_owned(), [][..].into()),
 			("parent".to_owned(), [][..].into()),
 			("preview".to_owned(), [][..].into()),
 			("progress".to_owned(), [][..].into()),
 			("rail".to_owned(), [][..].into()),
+			("rails".to_owned(), [][..].into()),
 			("root".to_owned(), [][..].into()),
 			("status".to_owned(), [][..].into()),
 			("tab".to_owned(), [][..].into()),

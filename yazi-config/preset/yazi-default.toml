@@ -14,7 +14,7 @@ linemode       = "none"
 show_hidden    = false
 show_symlink   = true
 scrolloff      = 5
-mouse_events   = [ "click", "scroll" ]
+mouse_events   = [ "click", "scroll", "drag" ]
 
 [preview]
 wrap            = "no"
@@ -98,10 +98,10 @@ suppress_preload = false
 
 [plugin]
 fetchers = [
-	# Mimetype
-	{ id = "mime", url = "*/",         run = "mime.dir", prio = "high" },
-	{ id = "mime", url = "local://*",  run = "mime.local", prio = "high" },
-	{ id = "mime", url = "remote://*", run = "mime.remote", prio = "high" },
+	# MIME-type
+	{ url = "*/",         run = "mime.dir",    prio = "high", group = "mime" },
+	{ url = "local://*",  run = "mime.local",  prio = "high", group = "mime" },
+	{ url = "remote://*", run = "mime.remote", prio = "high", group = "mime" },
 ]
 spotters = [
 	# Multi-file
