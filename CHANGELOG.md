@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+## [v26.5.6]
+
 ### Added
 
 - Custom tab name ([#3666])
@@ -22,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - New `app:theme` action that hot-reload user themes/flavors ([#3906])
 - Dynamic open/opener Lua API ([#3901])
 - Dynamic previewer Lua API ([#3891])
+- Custom styles for plugins ([#3934])
 - Vim-like `lua` action that runs an inline Lua snippet ([#3813])
 - Certificate authentication for SFTP VFS provider ([#3716])
 - New `hovered` condition specifying different icons for hovered files ([#3728])
@@ -1065,6 +1068,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [v25.12.29]: https://github.com/sxyazi/yazi/compare/v25.5.31...v25.12.29
 [v26.1.4]: https://github.com/sxyazi/yazi/compare/v25.12.29...v26.1.4
 [v26.1.22]: https://github.com/sxyazi/yazi/compare/v26.1.4...v26.1.22
+[v26.5.6]: https://github.com/sxyazi/yazi/compare/v26.5.6...v26.5.6
 [#4]: https://github.com/sxyazi/yazi/pull/4
 [#5]: https://github.com/sxyazi/yazi/pull/5
 [#6]: https://github.com/sxyazi/yazi/pull/6
@@ -1709,3 +1713,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3894]: https://github.com/sxyazi/yazi/pull/3894
 [#3901]: https://github.com/sxyazi/yazi/pull/3901
 [#3906]: https://github.com/sxyazi/yazi/pull/3906
+[#3934]: https://github.com/sxyazi/yazi/pull/3934
