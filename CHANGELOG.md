@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Make `ui.Style` immutable ([#3862])
 - Remove `title_format` in favor of new `ind-app-title` DDS event for flexible title customization ([#3684])
 - Remove `micro_workers` and `macro_workers` in favor of finer control over concurrent workers ([#3661])
+- Rename `id` of the fetcher rule to `group` ([#3943])
 
 ### Deprecated
 
@@ -1068,7 +1069,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [v25.12.29]: https://github.com/sxyazi/yazi/compare/v25.5.31...v25.12.29
 [v26.1.4]: https://github.com/sxyazi/yazi/compare/v25.12.29...v26.1.4
 [v26.1.22]: https://github.com/sxyazi/yazi/compare/v26.1.4...v26.1.22
-[v26.5.6]: https://github.com/sxyazi/yazi/compare/v26.5.6...v26.5.6
+[v26.5.6]: https://github.com/sxyazi/yazi/compare/v26.1.22...v26.5.6
 [#4]: https://github.com/sxyazi/yazi/pull/4
 [#5]: https://github.com/sxyazi/yazi/pull/5
 [#6]: https://github.com/sxyazi/yazi/pull/6
@@ -1714,3 +1715,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3901]: https://github.com/sxyazi/yazi/pull/3901
 [#3906]: https://github.com/sxyazi/yazi/pull/3906
 [#3934]: https://github.com/sxyazi/yazi/pull/3934
+[#3943]: https://github.com/sxyazi/yazi/pull/3943
