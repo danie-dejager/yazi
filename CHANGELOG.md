@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Added
 
 - Bulk create ([#3793])
+- Image preview with Überzug++ on Niri ([#3990])
+
+### Changed
+
+- Rename `<BackTab>` to `<S-Tab>` ([#3989])
+- Remove Legacy Console Mode on Windows ([#3989])
 
 ## [v26.5.6]
 
@@ -1721,3 +1727,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3906]: https://github.com/sxyazi/yazi/pull/3906
 [#3934]: https://github.com/sxyazi/yazi/pull/3934
 [#3943]: https://github.com/sxyazi/yazi/pull/3943
+[#3989]: https://github.com/sxyazi/yazi/pull/3989
+[#3990]: https://github.com/sxyazi/yazi/pull/3990

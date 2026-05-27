@@ -5,6 +5,7 @@ use yazi_config::{THEME, YAZI};
 use yazi_emulator::Mux;
 use yazi_fs::Xdg;
 use yazi_shared::timestamp_us;
+use yazi_term::TERM;
 
 use super::Actions;
 
@@ -39,12 +40,13 @@ impl Actions {
 
 		writeln!(s, "\nAdapter")?;
 		writeln!(s, "    Adapter.matches    : {:?}", yazi_adapter::ADAPTOR)?;
-		writeln!(s, "    Dimension.available: {:?}", yazi_emulator::Dimension::available())?;
+		writeln!(s, "    Dimension.available: {:?}", TERM.dimension())?;
 
 		writeln!(s, "\nDesktop")?;
 		writeln!(s, "    XDG_SESSION_TYPE           : {:?}", env::var_os("XDG_SESSION_TYPE"))?;
 		writeln!(s, "    WAYLAND_DISPLAY            : {:?}", env::var_os("WAYLAND_DISPLAY"))?;
 		writeln!(s, "    DISPLAY                    : {:?}", env::var_os("DISPLAY"))?;
+		writeln!(s, "    NIRI_SOCKET                : {:?}", env::var_os("NIRI_SOCKET"))?;
 		writeln!(s, "    SWAYSOCK                   : {:?}", env::var_os("SWAYSOCK"))?;
 		#[rustfmt::skip]
 		writeln!(s, "    HYPRLAND_INSTANCE_SIGNATURE: {:?}", env::var_os("HYPRLAND_INSTANCE_SIGNATURE"))?;
