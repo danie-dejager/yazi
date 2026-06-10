@@ -20,7 +20,7 @@ function M.cut_uri_list(list)
 
 		local from = Url(ya.percent_decode(line:sub(8)))
 		if from.name then
-			local to = cx.active.current.cwd:join(from.name)
+			local to = cx.active.current.cwd:join(Path.os(from.name))
 			ya.async(function() ya.task("cut", { from = from, to = to }):spawn() end)
 		end
 
@@ -35,7 +35,7 @@ function M.offer_uri_list()
 	end
 
 	local icon = string.format("%d selected file(s)", #list)
-	rt.tty:queue("ConfirmDrag", { type = "either", mimes = { "text/uri-list" } })
+	rt.tty:queue("AgreeDrag", { type = "either", mimes = { "text/uri-list" } })
 	rt.tty:queue("PresentDrag", { idx = 0, data = table.concat(list, "\r\n") })
 	rt.tty:queue("PresentDragIcon", { format = 0, opacity = 0, width = 6, height = 4, data = icon })
 	rt.tty:queue("StartDrag", {})

@@ -17,11 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Drag and drop ([#4005])
 - Bulk create ([#3793])
 - Image preview with Überzug++ on Niri ([#3990])
+- New gait for input `backward` and `forward` actions ([#4012])
 
 ### Changed
 
 - Rename `<BackTab>` to `<S-Tab>` ([#3989])
 - Remove Legacy Console Mode on Windows ([#3989])
+
+### Deprecated
+
+- Deprecate `backward --far` and `forward --far` in favor of `backward wide` and `forward wide`, respectively ([#4012])
+
+### Improved
+
+- Eliminate hacks in image and UI conflict resolution ([#4022])
 
 ## [v26.5.6]
 
@@ -1731,3 +1740,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#3989]: https://github.com/sxyazi/yazi/pull/3989
 [#3990]: https://github.com/sxyazi/yazi/pull/3990
 [#4005]: https://github.com/sxyazi/yazi/pull/4005
+[#4012]: https://github.com/sxyazi/yazi/pull/4012
+[#4022]: https://github.com/sxyazi/yazi/pull/4022

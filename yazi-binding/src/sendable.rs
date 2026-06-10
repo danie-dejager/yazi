@@ -3,26 +3,25 @@ use std::{any::TypeId, borrow::Cow};
 use hashbrown::HashMap;
 use mlua::{ExternalError, IntoLua, Lua, MultiValue, Table, Value};
 use ordered_float::OrderedFloat;
-use yazi_shared::{data::{Data, DataKey}, replace_cow};
+use yazi_shared::{any_data::AnyData, data::{Data, DataInventory, DataKey}, replace_cow};
 
-use crate::ember;
+use crate::{Id, Path, Url};
 
 pub struct Sendable;
 
 impl Sendable {
 	pub fn value_to_data(lua: &Lua, value: Value) -> mlua::Result<Data> {
-		Ok(match value {
-			Value::Nil => Data::Nil,
-			Value::Boolean(b) => Data::Boolean(b),
-			Value::LightUserData(_) => Err("light userdata is not supported".into_lua_err())?,
-			Value::Integer(i) => Data::Integer(i),
-			Value::Number(n) => Data::Number(n),
+		match &value {
+			Value::Nil => return Ok(Data::Nil),
+			Value::Boolean(b) => return Ok(Data::Boolean(*b)),
+			Value::Integer(i) => return Ok(Data::Integer(*i)),
+			Value::Number(n) => return Ok(Data::Number(*n)),
 			Value::String(b) => {
-				if let Ok(s) = b.to_str() {
+				return Ok(if let Ok(s) = b.to_str() {
 					Data::String(s.to_owned().into())
 				} else {
 					Data::Bytes(b.as_bytes().to_owned())
-				}
+				});
 			}
 			Value::Table(t) => {
 				let (mut i, mut map) = (1, HashMap::with_capacity(t.raw_len()));
@@ -36,38 +35,40 @@ impl Sendable {
 					map.insert(k, Self::value_to_data(lua, v)?);
 				}
 
-				if map.len() == i as usize - 1 {
+				return Ok(if map.len() == i as usize - 1 {
 					Data::List((1..i).map(|i| map.remove(&DataKey::Integer(i)).unwrap()).collect())
 				} else {
 					Data::Dict(map)
-				}
+				});
 			}
-			Value::Function(_) => Err("function is not supported".into_lua_err())?,
-			Value::Thread(_) => Err("thread is not supported".into_lua_err())?,
 			Value::UserData(ud) => match ud.type_id() {
-				Some(t) if t == TypeId::of::<yazi_binding::Url>() => {
-					Data::Url(ud.take::<yazi_binding::Url>()?.into())
+				Some(t) if t == TypeId::of::<Url>() => {
+					return Ok(Data::Url(ud.take::<Url>()?.into()));
 				}
-				Some(t) if t == TypeId::of::<yazi_binding::Path>() => {
-					Data::Path(ud.take::<yazi_binding::Path>()?.into())
+				Some(t) if t == TypeId::of::<Path>() => {
+					return Ok(Data::Path(ud.take::<Path>()?.into()));
 				}
-				Some(t) if t == TypeId::of::<yazi_binding::Id>() => {
-					Data::Id(**ud.borrow::<yazi_binding::Id>()?)
+				Some(t) if t == TypeId::of::<Id>() => {
+					return Ok(Data::Id(**ud.borrow::<Id>()?));
 				}
-				Some(t) if t == TypeId::of::<yazi_fs::FilesOp>() => {
-					Data::Any(Box::new(ud.take::<yazi_fs::FilesOp>()?))
-				}
-				Some(t) if t == TypeId::of::<ember::EmberYankIter>() => {
-					Data::Any(Box::new(ud.take::<ember::EmberYankIter>()?.collect(lua)?))
-				}
-				Some(t) if t == TypeId::of::<yazi_binding::ChordCow>() => {
-					Data::Any(Box::new(ud.take::<yazi_binding::ChordCow>()?))
-				}
-				_ => Err(format!("unsupported userdata included: {ud:?}").into_lua_err())?,
+				Some(t) if t == TypeId::of::<AnyData>() => return Ok(Data::Any(ud.take::<AnyData>()?.0)),
+				_ => {}
 			},
-			Value::Error(_) => Err("error is not supported".into_lua_err())?,
-			Value::Other(..) => Err("unknown data is not supported".into_lua_err())?,
-		})
+			Value::LightUserData(_) => {}
+			Value::Function(_) => {}
+			Value::Thread(_) => {}
+			Value::Error(_) => {}
+			Value::Other(_) => {}
+		}
+
+		for inv in inventory::iter::<DataInventory> {
+			match (inv.from_lua)(value.clone(), lua) {
+				Ok(data) => return Ok(Data::Any(data)),
+				Err(mlua::Error::UserDataTypeMismatch) => continue,
+				Err(e) => return Err(e),
+			}
+		}
+		Err(format!("unsupported value included: {value:?}").into_lua_err())?
 	}
 
 	pub fn data_to_value(lua: &Lua, data: Data) -> mlua::Result<Value> {
@@ -88,26 +89,10 @@ impl Sendable {
 				}
 				Value::Table(tbl)
 			}
-			Data::Url(u) => yazi_binding::Url::new(u).into_lua(lua)?,
-			Data::Path(u) => yazi_binding::Path::new(u).into_lua(lua)?,
+			Data::Url(u) => Url::new(u).into_lua(lua)?,
+			Data::Path(u) => Path::new(u).into_lua(lua)?,
 			Data::Bytes(b) => Value::String(lua.create_external_string(b)?),
-			Data::Any(b) => {
-				let mut b = b.into_any();
-				macro_rules! try_cast {
-					($f:expr) => {
-						match b.downcast() {
-							Ok(v) => return $f(*v)?.into_lua(lua),
-							#[allow(unused_assignments)]
-							Err(e) => b = e,
-						}
-					};
-				}
-
-				try_cast!(|v: yazi_fs::FilesOp| lua.create_any_userdata(v));
-				try_cast!(|v: ember::EmberYank| v.into_lua(lua));
-				try_cast!(|v: yazi_binding::ChordCow| v.into_lua(lua));
-				Err("unsupported DataAny included".into_lua_err())?
-			}
+			Data::Any(a) => a.into_lua(lua)?,
 			_ => Self::data_to_value_ref(lua, &data)?,
 		})
 	}
@@ -134,24 +119,11 @@ impl Sendable {
 				}
 				Value::Table(tbl)
 			}
-			Data::Id(i) => yazi_binding::Id(*i).into_lua(lua)?,
-			Data::Url(u) => yazi_binding::Url::new(u).into_lua(lua)?,
-			Data::Path(u) => yazi_binding::Path::new(u).into_lua(lua)?,
+			Data::Id(i) => Id(*i).into_lua(lua)?,
+			Data::Url(u) => Url::new(u).into_lua(lua)?,
+			Data::Path(u) => Path::new(u).into_lua(lua)?,
 			Data::Bytes(b) => Value::String(lua.create_string(b)?),
-			Data::Any(b) => {
-				macro_rules! try_cast {
-					($f:expr) => {
-						if let Some(v) = b.as_any().downcast_ref() {
-							return $f(Clone::clone(v))?.into_lua(lua);
-						}
-					};
-				}
-
-				try_cast!(|v: yazi_fs::FilesOp| lua.create_any_userdata(v));
-				try_cast!(|v: ember::EmberYank| v.into_lua(lua));
-				try_cast!(|v: yazi_binding::ChordCow| v.into_lua(lua));
-				Err("unsupported DataAny included".into_lua_err())?
-			}
+			Data::Any(a) => a.to_lua(lua)?,
 		})
 	}
 
@@ -231,15 +203,9 @@ impl Sendable {
 			Value::Function(_) => Err("function is not supported".into_lua_err())?,
 			Value::Thread(_) => Err("thread is not supported".into_lua_err())?,
 			Value::UserData(ud) => match ud.type_id() {
-				Some(t) if t == TypeId::of::<yazi_binding::Url>() => {
-					DataKey::Url(ud.take::<yazi_binding::Url>()?.into())
-				}
-				Some(t) if t == TypeId::of::<yazi_binding::Path>() => {
-					DataKey::Path(ud.take::<yazi_binding::Path>()?.into())
-				}
-				Some(t) if t == TypeId::of::<yazi_binding::Id>() => {
-					DataKey::Id(**ud.borrow::<yazi_binding::Id>()?)
-				}
+				Some(t) if t == TypeId::of::<Url>() => DataKey::Url(ud.take::<Url>()?.into()),
+				Some(t) if t == TypeId::of::<Path>() => DataKey::Path(ud.take::<Path>()?.into()),
+				Some(t) if t == TypeId::of::<Id>() => DataKey::Id(**ud.borrow::<Id>()?),
 				_ => Err(format!("unsupported userdata included: {ud:?}").into_lua_err())?,
 			},
 			Value::Error(_) => Err("error is not supported".into_lua_err())?,
@@ -250,8 +216,8 @@ impl Sendable {
 	fn key_to_value(lua: &Lua, key: DataKey) -> mlua::Result<Value> {
 		match key {
 			DataKey::String(Cow::Owned(s)) => lua.create_external_string(s).map(Value::String),
-			DataKey::Url(u) => yazi_binding::Url::new(u).into_lua(lua),
-			DataKey::Path(u) => yazi_binding::Path::new(u).into_lua(lua),
+			DataKey::Url(u) => Url::new(u).into_lua(lua),
+			DataKey::Path(u) => Path::new(u).into_lua(lua),
 			DataKey::Bytes(b) => lua.create_external_string(b).map(Value::String),
 			_ => Self::key_to_value_ref(lua, &key),
 		}
@@ -264,9 +230,9 @@ impl Sendable {
 			DataKey::Integer(i) => Value::Integer(*i),
 			DataKey::Number(n) => Value::Number(n.0),
 			DataKey::String(s) => Value::String(lua.create_string(&**s)?),
-			DataKey::Id(i) => yazi_binding::Id(*i).into_lua(lua)?,
-			DataKey::Url(u) => yazi_binding::Url::new(u).into_lua(lua)?,
-			DataKey::Path(u) => yazi_binding::Path::new(u).into_lua(lua)?,
+			DataKey::Id(i) => Id(*i).into_lua(lua)?,
+			DataKey::Url(u) => Url::new(u).into_lua(lua)?,
+			DataKey::Path(u) => Path::new(u).into_lua(lua)?,
 			DataKey::Bytes(b) => Value::String(lua.create_string(b)?),
 		})
 	}
