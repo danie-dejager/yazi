@@ -1,10 +1,12 @@
 use std::{fmt::{Display, Write}, str::FromStr};
 
 use anyhow::bail;
+use mlua::{IntoLua, Lua, LuaSerdeExt, Value};
 use serde::{Deserialize, Serialize};
+use yazi_shim::mlua::SER_OPT;
 use yazi_term::event::{KeyCode, KeyEvent, Modifiers};
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Key {
 	#[serde(flatten)]
 	pub code:   KeyCode,
@@ -16,18 +18,11 @@ pub struct Key {
 }
 
 impl Key {
-	#[inline]
 	pub fn plain(&self) -> Option<char> {
 		match self.code {
 			KeyCode::Char(c) if !self.ctrl && !self.alt && !self.super_ => Some(c),
 			_ => None,
 		}
-	}
-}
-
-impl Default for Key {
-	fn default() -> Self {
-		Self { code: KeyCode::Null, shift: false, ctrl: false, alt: false, super_: false }
 	}
 }
 
@@ -184,4 +179,8 @@ impl Display for Key {
 
 		write!(f, "{code}>")
 	}
+}
+
+impl IntoLua for Key {
+	fn into_lua(self, lua: &Lua) -> mlua::Result<Value> { lua.to_value_with(&self, SER_OPT) }
 }

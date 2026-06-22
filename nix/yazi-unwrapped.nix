@@ -28,9 +28,6 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   cargoLock = {
     lockFile = "${src}/Cargo.lock";
-    outputHashes = {
-      "ratatui-0.30.1" = "sha256-wkEOgwAhW0ObtPDlJmOOoY5qf9c/P79ktN4b43jtcGw=";
-    };
   };
 
   env = {

@@ -1,13 +1,14 @@
 use std::{io::{self, Write}, ops::Deref};
 
 use anyhow::Result;
-use ratatui::{CompletedFrame, Frame, Terminal, buffer::Buffer, layout::Rect};
+use ratatui_core::{buffer::Buffer, layout::Rect, terminal::{CompletedFrame, Frame, Terminal}};
 use yazi_config::YAZI;
 use yazi_emulator::{Emulator, Mux, TMUX};
 use yazi_macro::writef;
+use yazi_proxy::AppProxy;
 use yazi_shim::cell::SyncCell;
-use yazi_term::{TERM, event::{Event, KeyEventKind}, sequence::{DisableBracketedPaste, DisableDrag, DisableDrop, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste, EnableDrag, EnableDrop, EnableFocusChange, EnableMouseCapture, EnterAlternateScreen, If, LeaveAlternateScreen, PopKeyboardFlags, PushKeyboardFlags, RequestCursorBlink, RequestCursorStyle, RequestDA1, RequestKeyboardFlags, RestoreCursorStyle, SetTitle, ShowCursor}, stream::EventStream};
-use yazi_tty::{TTY, TtyWriter};
+use yazi_term::{TERM, event::{Event, KeyEventKind}, stream::EventStream};
+use yazi_tty::{TTY, TtyWriter, sequence::{DisableBracketedPaste, DisableDrag, DisableDrop, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste, EnableDrag, EnableDrop, EnableFocusChange, EnableMouseCapture, EnterAlternateScreen, If, LeaveAlternateScreen, PopKeyboardFlags, PushKeyboardFlags, RequestCursorBlink, RequestCursorStyle, RequestDA1, RequestKeyboardFlags, RestoreCursorStyle, SetTitle, ShowCursor}};
 
 use crate::{RatermBackend, RatermOption, RatermState};
 
@@ -96,13 +97,20 @@ impl Raterm {
 		let mut rx = self.stream.take().unwrap();
 
 		tokio::spawn(async move {
-			while let Some(Ok(event)) = rx.recv().await {
-				match event {
-					Event::Key(key) if key.kind != KeyEventKind::Press => continue,
-					Event::Mouse(mouse) if !YAZI.mgr.mouse_events.get().contains(mouse.kind.into()) => {
-						continue;
+			loop {
+				match rx.recv().await {
+					Some(Ok(event)) => match event {
+						Event::Key(key) if key.kind != KeyEventKind::Press => continue,
+						Event::Mouse(mouse) if !YAZI.mgr.mouse_events.get().contains(mouse.kind.into()) => {
+							continue;
+						}
+						_ => yazi_shared::event::Event::Term(event).emit(),
+					},
+					Some(Err(_)) => {
+						AppProxy::quit(Default::default());
+						break;
 					}
-					_ => yazi_shared::event::Event::Term(event).emit(),
+					None => break,
 				}
 			}
 		});

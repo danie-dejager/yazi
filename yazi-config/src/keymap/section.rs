@@ -1,13 +1,14 @@
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 
 use hashbrown::HashSet;
+use mlua::{UserData, UserDataFields};
 use serde::Deserialize;
 use yazi_codegen::DeserializeOver2;
 use yazi_shared::Layer;
-use yazi_shim::toml::DeserializeOverHook;
+use yazi_shim::{mlua::UserDataFieldsExt, toml::DeserializeOverHook};
 
-use super::{Chord, Chords, Key};
-use crate::mix;
+use super::{Key, Chord, Chords, chords::layer_default};
+use crate::{keymap::ChordArc, mix};
 
 #[derive(Default, Deserialize, DeserializeOver2)]
 pub struct KeymapSection<const L: u8 = { Layer::Null as u8 }> {
@@ -16,6 +17,8 @@ pub struct KeymapSection<const L: u8 = { Layer::Null as u8 }> {
 	prepend_keymap: Vec<Chord<L>>,
 	#[serde(default)]
 	append_keymap:  Vec<Chord<L>>,
+	#[serde(default = "layer_default::<L>")]
+	layer:          Layer,
 }
 
 impl<const L: u8> Deref for KeymapSection<L> {
@@ -41,12 +44,18 @@ impl<const L: u8> DeserializeOverHook for KeymapSection<L> {
 		let a_seen: HashSet<_> = self.prepend_keymap.iter().map(on).collect();
 		let b_seen: HashSet<_> = keymap.iter().map(|c| on(c)).collect();
 
-		let keymap: Vec<Arc<Chord<L>>> = mix(
+		let keymap: Vec<ChordArc<L>> = mix(
 			self.prepend_keymap,
 			keymap.into_iter().filter(|v| !a_seen.contains(&on(v))),
 			self.append_keymap.into_iter().filter(|v| !b_seen.contains(&on(v))),
 		);
 
-		Ok(Self { keymap: keymap.into(), ..Default::default() })
+		Ok(Self { keymap: keymap.into(), layer: self.layer, ..Default::default() })
+	}
+}
+
+impl UserData for &'static KeymapSection {
+	fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
+		fields.add_cached_field("rules", |_, me| Ok(&me.keymap));
 	}
 }

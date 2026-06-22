@@ -18,19 +18,17 @@ impl Actor for Dnd {
 	const NAME: &str = "dnd";
 
 	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
-		let event = yazi_binding::DndEvent::from(form.event);
-
 		let Some(size) = cx.term.as_ref().and_then(|t| t.size().ok()) else { succ!() };
 		let area = yazi_binding::elements::Rect::from(size);
 
-		let result = Lives::scope(cx.core, move || {
+		let result = Lives::scope(cx.core, move |_| {
 			runtime_scope!(LUA, "root", {
 				let root = LUA.globals().raw_get::<Table>("Root")?.call_method::<Table>("new", area)?;
 
-				if event.is_drag() {
-					root.call_method::<()>("drag", event)?;
+				if form.event.is_drag() {
+					root.call_method::<()>("drag", form.event)?;
 				} else {
-					root.call_method::<()>("drop", event)?;
+					root.call_method::<()>("drop", form.event)?;
 				}
 
 				Ok(())

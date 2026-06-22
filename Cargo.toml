@@ -50,6 +50,7 @@ foldhash            = "0.2.0"
 futures             = "0.3.32"
 globset             = "0.4.18"
 hashbrown           = { version = "0.17.1", features = [ "serde" ] }
+image               = { version = "0.25.10", default-features = false, features = [ "avif", "bmp", "dds", "exr", "ff", "gif", "hdr", "ico", "jpeg", "png", "pnm", "qoi", "tga", "tiff", "webp" ] }
 indexmap            = { version = "2.14.0", features = [ "serde" ] }
 inventory           = "0.3.24"
 libc                = "0.2.186"
@@ -61,8 +62,9 @@ parking_lot         = "0.12.5"
 paste               = "1.0.15"
 percent-encoding    = "2.3.2"
 rand                = { version = "0.10.1", default-features = false, features = [ "std", "sys_rng" ] }
-ratatui             = { version = "0.30.1", default-features = false, features = [ "std", "layout-cache", "serde", "underline-color", "unstable-rendered-line-info", "unstable-widget-ref" ] }
-regex               = "1.12.3"
+ratatui-core        = { version = "0.1.2", default-features = false, features = [ "std", "layout-cache", "serde", "underline-color" ] }
+ratatui-widgets     = { version = "0.3.2", default-features = false, features = [ "std", "unstable-rendered-line-info" ] }
+regex               = "1.12.4"
 russh               = { version = "0.61.2", default-features = false, features = [ "ring", "rsa" ] }
 scopeguard          = "1.2.0"
 serde               = { version = "1.0.228", features = [ "derive" ] }
@@ -91,8 +93,3 @@ module_inception     = "allow"
 option_map_unit_fn   = "allow"
 unit_arg             = "allow"
 use_self             = "warn"
-
-[patch.crates-io]
-ratatui         = { git = "https://github.com/yazi-rs/ratatui.git", package = "ratatui", rev = "a1c4922a242861d755163ae85d7e41b85ed277d2" }
-ratatui-core    = { git = "https://github.com/yazi-rs/ratatui.git", package = "ratatui-core", rev = "a1c4922a242861d755163ae85d7e41b85ed277d2" }
-ratatui-widgets = { git = "https://github.com/yazi-rs/ratatui.git", package = "ratatui-widgets", rev = "a1c4922a242861d755163ae85d7e41b85ed277d2" }
