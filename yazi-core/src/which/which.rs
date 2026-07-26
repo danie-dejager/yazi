@@ -1,12 +1,14 @@
 use tokio::sync::mpsc;
 use yazi_config::keymap::{ChordArc, Key};
 use yazi_macro::{emit, render_and};
+use yazi_shared::Layer;
 
 #[derive(Default)]
 pub struct Which {
 	pub tx:    Option<mpsc::UnboundedSender<Option<ChordArc>>>,
-	pub times: usize,
+	pub layer: Layer,
 	pub cands: Vec<ChordArc>,
+	pub times: usize,
 
 	// Active state
 	pub active: bool,
@@ -15,6 +17,10 @@ pub struct Which {
 
 impl Which {
 	pub fn r#type(&mut self, key: Key) -> bool {
+		if key.code.is_modifier() {
+			return false;
+		}
+
 		self.cands.retain(|c| c.on.len() > self.times && c.on[self.times] == key);
 		self.times += 1;
 
@@ -32,8 +38,8 @@ impl Which {
 	}
 
 	pub fn dismiss(&mut self, chord: Option<ChordArc>) {
-		self.times = 0;
 		self.cands.clear();
+		self.times = 0;
 
 		self.active = false;
 		self.silent = false;
@@ -42,7 +48,7 @@ impl Which {
 			_ = tx.send(chord.as_ref().map(Into::into));
 		}
 		if let Some(chord) = chord {
-			emit!(Seq(chord.into_seq()));
+			emit!(Seq(chord.into_seq(self.layer)));
 		}
 	}
 }

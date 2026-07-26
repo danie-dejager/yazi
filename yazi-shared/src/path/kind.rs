@@ -1,17 +1,23 @@
-use crate::scheme::SchemeKind;
+use serde::{Deserialize, Serialize};
 
+use crate::auth::AuthKind;
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PathKind {
 	Os,
 	Unix,
 }
 
-impl From<SchemeKind> for PathKind {
-	fn from(value: SchemeKind) -> Self {
+impl From<AuthKind> for PathKind {
+	fn from(value: AuthKind) -> Self {
 		match value {
-			SchemeKind::Regular => Self::Os,
-			SchemeKind::Search => Self::Os,
-			SchemeKind::Archive => Self::Os,
-			SchemeKind::Sftp => Self::Unix,
+			AuthKind::Regular => Self::Os,
+			AuthKind::Search => Self::Os,
+			AuthKind::Mount => Self::Os,
+			AuthKind::Hub => Self::Os,
+			AuthKind::Scope => Self::Unix,
+			AuthKind::Sftp => Self::Unix,
 		}
 	}
 }

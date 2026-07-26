@@ -1,13 +1,13 @@
 use mlua::Table;
-use yazi_fs::file::FileRef;
+use yazi_fs::{cha::Cha, file::FileRef};
 use yazi_macro::impl_data_any;
-use yazi_shared::id::Id;
+use yazi_shared::{id::Id, url::UrlBuf};
 use yazi_widgets::Renderable;
 
 #[derive(Clone, Debug)]
 pub struct SpotLock {
-	pub url:  yazi_shared::url::UrlBuf,
-	pub cha:  yazi_fs::cha::Cha,
+	pub url:  UrlBuf,
+	pub cha:  Cha,
 	pub mime: String,
 
 	pub id:   Id,
@@ -22,14 +22,16 @@ impl TryFrom<Table> for SpotLock {
 
 	fn try_from(t: Table) -> Result<Self, Self::Error> {
 		let file: FileRef = t.raw_get("file")?;
-		Ok(Self {
-			url:  file.url_owned(),
-			cha:  file.cha,
-			mime: t.raw_get("mime")?,
+		file.borrow(|f| {
+			Ok(Self {
+				url:  f.url_owned(),
+				cha:  f.cha,
+				mime: t.raw_get("mime")?,
 
-			id:   t.raw_get("id")?,
-			skip: t.raw_get("skip")?,
-			data: Default::default(),
+				id:   t.raw_get("id")?,
+				skip: t.raw_get("skip")?,
+				data: Default::default(),
+			})
 		})
 	}
 }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use yazi_core::tab::Folder;
+use yazi_core::{Reconciler, tab::Folder};
 use yazi_fs::FilesOp;
 use yazi_macro::{act, render, succ};
 use yazi_parser::mgr::UpdateFilesForm;
@@ -16,11 +16,12 @@ impl Actor for UpdateFiles {
 	const NAME: &str = "update_files";
 
 	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
-		let revision = cx.current().files.revision;
+		let tab = cx.tab;
+		let revision = cx.current().entries.revision;
 		let linked: Vec<_> = LINKED.read().from_dir(form.op.cwd()).map(|u| form.op.chdir(u)).collect();
 
 		for op in [form.op].into_iter().chain(linked) {
-			cx.mgr.yanked.apply_op(&op);
+			Reconciler::new(&mut cx.mgr, tab).apply(&op);
 			Self::update_tab(cx, op).ok();
 		}
 
@@ -28,7 +29,7 @@ impl Actor for UpdateFiles {
 		act!(mgr:hidden, cx).ok();
 		act!(mgr:sort, cx).ok();
 
-		if revision != cx.current().files.revision {
+		if revision != cx.current().entries.revision {
 			act!(mgr:hover, cx)?;
 			act!(mgr:peek, cx)?;
 			act!(mgr:watch, cx)?;
@@ -41,7 +42,6 @@ impl Actor for UpdateFiles {
 impl UpdateFiles {
 	fn update_tab(cx: &mut Ctx, op: FilesOp) -> Result<Data> {
 		let url = op.cwd();
-		cx.tab_mut().selected.apply_op(&op);
 
 		if url == cx.cwd() {
 			Self::update_current(cx, op)
@@ -57,12 +57,12 @@ impl UpdateFiles {
 	fn update_parent(cx: &mut Ctx, op: FilesOp) -> Result<Data> {
 		let tab = cx.tab_mut();
 
-		let urn = tab.current.url.urn();
-		let leave = matches!(op, FilesOp::Deleting(_, ref urns) if urns.contains(&urn));
+		let key = tab.current.url.entry_key();
+		let leave = matches!(op, FilesOp::Deleting(_, ref keys) if keys.contains(&key));
 
 		if let Some(f) = tab.parent.as_mut() {
 			render!(f.update_pub(tab.id, op));
-			render!(f.hover(urn));
+			render!(f.hover(key));
 		}
 
 		if leave {
@@ -80,7 +80,7 @@ impl UpdateFiles {
 		}
 
 		if calc {
-			cx.tasks.prework_sorted(&cx.current().files);
+			cx.tasks.prework_sorted(&cx.current().entries);
 		}
 		succ!();
 	}
@@ -97,8 +97,8 @@ impl UpdateFiles {
 
 	fn update_history(cx: &mut Ctx, op: FilesOp) -> Result<Data> {
 		let tab = &mut cx.tab_mut();
-		let leave = tab.parent.as_ref().and_then(|f| f.url.parent().map(|p| (p, f.url.urn()))).is_some_and(
-			|(p, n)| matches!(op, FilesOp::Deleting(ref parent, ref urns) if *parent == p && urns.contains(&n)),
+		let leave = tab.parent.as_ref().and_then(|f| f.url.pair2()).is_some_and(
+			|(pp, key)| matches!(&op, FilesOp::Deleting(parent, keys) if parent == pp && keys.contains(&key)),
 		);
 
 		tab.history.get_or_insert_with(op.cwd(), |u| Folder::from(u)).update_pub(tab.id, op);

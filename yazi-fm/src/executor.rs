@@ -182,7 +182,6 @@ impl<'a> Executor<'a> {
 		on!(inspect);
 		on!(cancel);
 		on!(process_open);
-		on!(open_shell_compat);
 
 		match action.name.as_ref() {
 			// Help
@@ -267,6 +266,8 @@ impl<'a> Executor<'a> {
 		on!(escape);
 		on!(show);
 		on!(close);
+		on!(recall);
+		on!(remember);
 
 		guard = match self.app.core.input.lock_mut() {
 			Some(g) => g,
@@ -321,16 +322,18 @@ impl<'a> Executor<'a> {
 
 		on!(escape);
 		on!(arrow);
-		on!(filter);
+		on!(close);
 
 		match action.name.as_ref() {
-			// Help
-			"close" => act!(help:toggle, cx, Layer::Help),
 			// Plugin
 			"plugin" => act!(app:plugin, cx, action),
 			// Lua
 			"lua" => act!(app:lua, cx, action),
-			_ => succ!(),
+			_ => {
+				cx.help.input.execute(action)?;
+				cx.help.filter_apply();
+				succ!()
+			}
 		}
 	}
 

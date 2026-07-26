@@ -1,15 +1,21 @@
-yazi_macro::mod_pub!(keymap mgr open opener plugin popup preview tasks theme which);
+yazi_macro::mod_pub!(keymap mgr open opener plugin popup preview tasks theme vfs which);
 
-yazi_macro::mod_flat!(icon inject layout mixing pattern platform preset priority selectable selector yazi);
+yazi_macro::mod_flat!(icon inject layout mixing pattern platform preset priority selectable selector tests yazi);
 
 use std::io::{Read, Write};
 
+use anyhow::Context;
+use yazi_fs::Xdg;
+use yazi_macro::writef;
 use yazi_shim::{cell::{RoCell, SyncCell}, toml::{DeserializeOver, DeserializeOverWith}};
 use yazi_tty::{TTY, sequence::SetSgr};
 
+use crate::theme::{Flavor, Theme};
+
 pub static YAZI: RoCell<yazi::Yazi> = RoCell::new();
 pub static KEYMAP: RoCell<keymap::Keymap> = RoCell::new();
-pub static THEME: RoCell<theme::Theme> = RoCell::new();
+pub static THEME: RoCell<Theme> = RoCell::new();
+pub static VFS: RoCell<vfs::Vfs> = RoCell::new();
 pub static LAYOUT: SyncCell<Layout> = SyncCell::new(Layout::default());
 
 pub fn init() -> anyhow::Result<()> {
@@ -23,14 +29,21 @@ pub fn init() -> anyhow::Result<()> {
 fn try_init(merge: bool) -> anyhow::Result<()> {
 	let mut yazi = Preset::yazi()?;
 	let mut keymap = Preset::keymap()?;
+	let mut vfs = Preset::vfs()?;
 
 	if merge {
-		yazi = yazi.deserialize_over(&yazi::Yazi::read()?)?;
-		keymap = keymap.deserialize_over(&keymap::Keymap::read()?)?;
+		yazi = parse("yazi.toml", yazi.deserialize_over(&yazi::Yazi::read()?))?;
+		keymap = parse("keymap.toml", keymap.deserialize_over(&keymap::Keymap::read()?))?;
+		vfs = parse("vfs.toml", vfs.deserialize_over(&vfs::Vfs::read()?))?;
+	} else {
+		yazi = yazi.deserialize_over("")?;
+		keymap = keymap.deserialize_over("")?;
+		vfs = vfs.deserialize_over("")?;
 	}
 
 	YAZI.init(yazi);
 	KEYMAP.init(keymap);
+	VFS.init(vfs);
 	Ok(())
 }
 
@@ -47,34 +60,46 @@ fn try_init_flavor(light: bool, merge: bool) -> anyhow::Result<()> {
 	Ok(())
 }
 
-pub fn build_flavor(light: bool, merge: bool) -> anyhow::Result<theme::Theme> {
+pub fn build_flavor(light: bool, merge: bool) -> anyhow::Result<Theme> {
 	let mut preset = Preset::theme(light)?;
 
 	if merge {
-		let theme_str = theme::Theme::read()?;
-		let theme = toml::de::DeTable::parse(&theme_str)?;
+		let theme_str = Theme::read()?;
+		let theme = parse("theme.toml", toml::de::DeTable::parse(&theme_str))?;
 
-		let flavor_str = theme::Flavor::from_theme(&theme, &theme_str)?.read(light)?;
+		let flavor_str = parse("theme.toml", Flavor::from_theme(&theme, &theme_str))?.read(light)?;
 
 		preset = preset.deserialize_over(&flavor_str)?;
-		preset = error_with_input(
-			preset.deserialize_over_with(toml::de::Deserializer::from(theme)),
-			&theme_str,
+		preset = parse(
+			"theme.toml",
+			error_with_input(
+				preset.deserialize_over_with(toml::de::Deserializer::from(theme)),
+				&theme_str,
+			),
 		)?;
+	} else {
+		preset = preset.deserialize_over("")?;
 	}
 
 	preset.reshape(light)
 }
 
+fn parse<T, E>(name: &str, result: Result<T, E>) -> anyhow::Result<T>
+where
+	E: std::error::Error + Send + Sync + 'static,
+{
+	result.with_context(|| format!("Failed to parse config {:?}", Xdg::config_dir().join(name)))
+}
+
 fn wait_for_key(e: anyhow::Error) -> anyhow::Result<()> {
-	let stdout = &mut *TTY.lockout();
+	let mut stdout = &mut *TTY.lockout();
 
 	writeln!(stdout, "{e}")?;
 	if let Some(src) = e.source() {
 		writeln!(stdout, "\nCaused by:\n{src}")?;
 	}
 
-	writeln!(
+	writef!(
 		stdout,
 		"{}{}Press <Enter> to continue with preset settings...{}",
 		SetSgr::Reverse,

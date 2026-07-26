@@ -2,11 +2,13 @@ use std::ops::Deref;
 
 use anyhow::{anyhow, bail};
 use bitflags::bitflags;
+use mlua::{IntoLua, Lua, Value};
+use serde::{Deserialize, Serialize};
 
 use crate::cha::ChaType;
 
 bitflags! {
-	#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+	#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 	pub struct ChaMode: u16 {
 		// File type
 		const T_MASK   = 0b1111_0000_0000_0000;
@@ -156,4 +158,8 @@ impl ChaMode {
 
 	#[inline]
 	pub const fn is_sticky(self) -> bool { self.contains(Self::S_STICKY) }
+}
+
+impl IntoLua for ChaMode {
+	fn into_lua(self, lua: &Lua) -> mlua::Result<Value> { self.bits().into_lua(lua) }
 }

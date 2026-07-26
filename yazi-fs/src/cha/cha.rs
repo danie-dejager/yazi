@@ -2,13 +2,14 @@ use std::{fs::Metadata, ops::Deref, time::{Duration, SystemTime, UNIX_EPOCH}};
 
 use anyhow::bail;
 use mlua::FromLua;
+use serde::{Deserialize, Serialize};
 use yazi_macro::{unix_either, win_either};
 use yazi_shared::{strand::AsStrand, url::AsUrl};
 
 use super::ChaKind;
 use crate::cha::{ChaMode, ChaType};
 
-#[derive(Clone, Copy, Debug, Eq, FromLua, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, FromLua, PartialEq, Serialize)]
 pub struct Cha {
 	pub kind:  ChaKind,
 	pub mode:  ChaMode,
@@ -53,7 +54,7 @@ impl Cha {
 	where
 		T: AsStrand,
 	{
-		Self::from_bare(&meta).attach(ChaKind::hidden(name, &meta))
+		Self::from_bare(&meta).attach(ChaKind::hidden(name, &meta) | ChaKind::reparse(&meta))
 	}
 
 	pub fn from_dummy<U>(_url: U, r#type: Option<ChaType>) -> Self
@@ -130,6 +131,16 @@ impl Cha {
 		self.kind |= kind;
 		self
 	}
+
+	#[inline]
+	pub fn follow(self, followed: Option<Self>) -> Self {
+		if !self.is_link() {
+			return self;
+		}
+
+		let retain = self.kind & (ChaKind::HIDDEN | ChaKind::SYSTEM | ChaKind::REPARSE);
+		followed.unwrap_or(self).attach(retain | ChaKind::FOLLOW)
+	}
 }
 
 impl Cha {
@@ -153,6 +164,12 @@ impl Cha {
 
 	#[inline]
 	pub const fn is_dummy(self) -> bool { self.kind.contains(ChaKind::DUMMY) }
+
+	#[inline]
+	pub const fn is_reparse(self) -> bool { self.kind.contains(ChaKind::REPARSE) }
+
+	#[inline]
+	pub fn is_indirect(self) -> bool { self.is_link() || self.is_reparse() }
 
 	pub fn atime_dur(self) -> anyhow::Result<Duration> {
 		if let Some(atime) = self.atime {

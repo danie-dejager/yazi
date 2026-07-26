@@ -7,16 +7,16 @@ use yazi_shared::id::Ids;
 use yazi_shim::path::CROSS_SEPARATOR;
 use yazi_tty::sequence::SetCursorStyle;
 
-use super::{InputSnap, InputSnaps, mode::InputMode, op::InputOp};
+use super::{InputHistory, InputSnap, InputSnaps, mode::InputMode, op::InputOp};
 use crate::{CLIPBOARD, input::{InputCallback, InputEvent, InputOpt, InputStyles}};
 
 #[derive(Debug, Default)]
 pub struct Input {
 	pub size:       Size,
 	pub snaps:      InputSnaps,
+	pub history:    InputHistory,
 	pub styles:     InputStyles,
 	pub obscure:    bool,
-	pub blinking:   bool,
 	pub realtime:   bool,
 	pub completion: bool,
 
@@ -28,9 +28,9 @@ impl Input {
 	pub fn new(opt: InputOpt) -> Result<Self> {
 		let mut input = Self {
 			snaps: InputSnaps::new(opt.value, opt.obscure),
+			history: InputHistory::new(opt.history),
 			styles: opt.styles,
 			obscure: opt.obscure,
-			blinking: opt.blinking,
 			realtime: opt.realtime,
 			completion: opt.completion,
 
@@ -91,9 +91,14 @@ impl Input {
 			return false;
 		}
 		if !matches!(old.op, InputOp::None | InputOp::Select(_)) {
-			self.snaps.tag(self.size.width as usize).then(|| self.flush_type());
+			self.snaps.tag(self.size.width as usize).then(|| self.flush_all());
 		}
 		true
+	}
+
+	pub(super) fn flush_all(&mut self) {
+		self.history.take();
+		self.flush_type();
 	}
 
 	pub(super) fn flush_type(&mut self) {
@@ -133,13 +138,14 @@ impl Input {
 	pub fn cursor_shape(&self) -> SetCursorStyle {
 		use InputMode as M;
 
+		let blink = self.styles.blink.unwrap_or(false);
 		match self.mode() {
-			M::Normal if self.blinking => SetCursorStyle::BlinkingBlock,
-			M::Normal if !self.blinking => SetCursorStyle::SteadyBlock,
-			M::Insert if self.blinking => SetCursorStyle::BlinkingBar,
-			M::Insert if !self.blinking => SetCursorStyle::SteadyBar,
-			M::Replace if self.blinking => SetCursorStyle::BlinkingUnderline,
-			M::Replace if !self.blinking => SetCursorStyle::SteadyUnderline,
+			M::Normal if blink => SetCursorStyle::BlinkingBlock,
+			M::Normal if !blink => SetCursorStyle::SteadyBlock,
+			M::Insert if blink => SetCursorStyle::BlinkingBar,
+			M::Insert if !blink => SetCursorStyle::SteadyBar,
+			M::Replace if blink => SetCursorStyle::BlinkingUnderline,
+			M::Replace if !blink => SetCursorStyle::SteadyUnderline,
 			M::Normal | M::Insert | M::Replace => unreachable!(),
 		}
 	}

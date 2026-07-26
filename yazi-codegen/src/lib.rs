@@ -45,7 +45,7 @@ pub fn deserialize_over1(input: TokenStream) -> TokenStream {
 	let flatten_arm = match flatten_fields.into_iter().next() {
 		Some(f) => {
 			let ident = f.ident.unwrap();
-			quote! { _ => self.0.#ident = self.0.#ident.deserialize_over_with(single_map_entry(key, &mut map))? }
+			quote! { _ => self.0.#ident = self.0.#ident.deserialize_over_with(single_map_entry(&*key, &mut map))? }
 		}
 		None => quote! { _ => _ = map.next_value::<IgnoredAny>()? },
 	};
@@ -54,7 +54,7 @@ pub fn deserialize_over1(input: TokenStream) -> TokenStream {
 		impl #impl_generics yazi_shim::toml::DeserializeOverWith for #ident #ty_generics #where_clause {
 			fn deserialize_over_with<'__de, __D: serde::Deserializer<'__de>>(self, de: __D) -> Result<Self, __D::Error> {
 				use serde::de::{Error, IgnoredAny, MapAccess, Visitor};
-				use yazi_shared::KebabCasedString;
+				use yazi_shared::KebabCasedKey;
 				use yazi_shim::{serde::single_map_entry, toml::{DeserializeOverHook, DeserializeOverSeed, DeserializeOverWith}};
 
 				struct V #impl_generics (#ident #ty_generics) #where_clause;
@@ -67,7 +67,7 @@ pub fn deserialize_over1(input: TokenStream) -> TokenStream {
 					}
 
 					fn visit_map<__M: MapAccess<'__de>>(mut self, mut map: __M) -> Result<Self::Value, __M::Error> {
-						while let Some(key) = map.next_key::<KebabCasedString>()? {
+						while let Some(key) = map.next_key::<KebabCasedKey>()? {
 							match key.as_ref() {
 								#(#normal_arms,)*
 								#flatten_arm
@@ -104,7 +104,7 @@ pub fn deserialize_over2(input: TokenStream) -> TokenStream {
 		}
 
 		if has_serde_attr(&field.attrs, "flatten") {
-			flatten_arm = quote! { _ => self.0.#field_ident = self.0.#field_ident.deserialize_over_with(single_map_entry(key, &mut map))? };
+			flatten_arm = quote! { _ => self.0.#field_ident = self.0.#field_ident.deserialize_over_with(single_map_entry(&*key, &mut map))? };
 			continue;
 		}
 
@@ -196,21 +196,13 @@ pub fn overlay(input: TokenStream) -> TokenStream {
 pub fn from_lua(input: TokenStream) -> TokenStream {
 	let DeriveInput { ident, generics, .. } = parse_macro_input!(input as DeriveInput);
 
-	let ident_str = ident.to_string();
 	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
 	quote! {
 		impl #impl_generics ::mlua::FromLua for #ident #ty_generics #where_clause {
 			#[inline]
-			fn from_lua(value: ::mlua::Value, _: &::mlua::Lua) -> ::mlua::Result<Self> {
-				match value {
-					::mlua::Value::UserData(ud) => ud.take::<Self>(),
-					_ => Err(::mlua::Error::FromLuaConversionError {
-							from: value.type_name(),
-							to: #ident_str.to_owned(),
-							message: None,
-					}),
-				}
+			fn from_lua(value: ::mlua::Value, lua: &::mlua::Lua) -> ::mlua::Result<Self> {
+				<::mlua::UserDataOwned<Self> as ::mlua::FromLua>::from_lua(value, lua).map(|ud| ud.0)
 			}
 		}
 	}

@@ -66,7 +66,7 @@ pub enum Spark<'a> {
 	Quit(crate::app::QuitForm),
 	Refresh(crate::VoidForm),
 	Remove(crate::mgr::RemoveForm),
-	RemoveDo(crate::mgr::RemoveForm),
+	RemoveDo(crate::mgr::RemoveDoForm),
 	Rename(crate::mgr::RenameForm),
 	Reveal(crate::mgr::RevealForm),
 	Search(crate::mgr::SearchForm),
@@ -110,8 +110,8 @@ pub enum Spark<'a> {
 
 	// Help
 	HelpArrow(crate::ArrowForm),
+	HelpClose(crate::help::CloseForm),
 	HelpEscape(crate::VoidForm),
-	HelpFilter(crate::VoidForm),
 	HelpToggle(crate::help::ToggleForm),
 
 	// Input
@@ -126,6 +126,8 @@ pub enum Spark<'a> {
 	InputKill(yazi_widgets::input::parser::KillOpt),
 	InputMove(yazi_widgets::input::parser::MoveOpt),
 	InputPaste(yazi_widgets::input::parser::PasteOpt),
+	InputRecall(crate::input::RecallForm),
+	InputRemember(crate::VoidForm),
 	InputShow(crate::input::ShowForm),
 
 	// Notify
@@ -303,8 +305,8 @@ impl<'a> IntoLua for Spark<'a> {
 
 			// Help
 			Self::HelpArrow(b) => b.into_lua(lua),
+			Self::HelpClose(b) => b.into_lua(lua),
 			Self::HelpEscape(b) => b.into_lua(lua),
-			Self::HelpFilter(b) => b.into_lua(lua),
 			Self::HelpToggle(b) => b.into_lua(lua),
 
 			// Input
@@ -319,6 +321,8 @@ impl<'a> IntoLua for Spark<'a> {
 			Self::InputKill(b) => b.into_lua(lua),
 			Self::InputMove(b) => b.into_lua(lua),
 			Self::InputPaste(b) => b.into_lua(lua),
+			Self::InputRecall(b) => b.into_lua(lua),
+			Self::InputRemember(b) => b.into_lua(lua),
 			Self::InputShow(b) => b.into_lua(lua),
 
 			// Notify
@@ -376,6 +380,7 @@ try_from_spark!(
 	mgr:suspend,
 	mgr:unyank,
 	mgr:watch,
+	input:remember,
 	which:dismiss
 );
 
@@ -395,6 +400,7 @@ try_from_spark!(crate::cmp::ShowForm, cmp:show);
 try_from_spark!(crate::cmp::TriggerForm, cmp:trigger);
 try_from_spark!(crate::confirm::CloseForm, confirm:close);
 try_from_spark!(crate::confirm::ShowForm, confirm:show);
+try_from_spark!(crate::help::CloseForm, help:close);
 try_from_spark!(crate::help::ToggleForm, help:toggle);
 try_from_spark!(crate::input::CloseForm, input:close);
 try_from_spark!(crate::mgr::BulkExitForm, mgr:bulk_exit);
@@ -418,7 +424,8 @@ try_from_spark!(crate::mgr::OpenDoForm, mgr:open_do);
 try_from_spark!(crate::mgr::OpenForm, mgr:open);
 try_from_spark!(crate::mgr::PasteForm, mgr:paste);
 try_from_spark!(crate::mgr::PeekForm, mgr:peek);
-try_from_spark!(crate::mgr::RemoveForm, mgr:remove, mgr:remove_do);
+try_from_spark!(crate::mgr::RemoveForm, mgr:remove);
+try_from_spark!(crate::mgr::RemoveDoForm, mgr:remove_do);
 try_from_spark!(crate::mgr::RenameForm, mgr:rename);
 try_from_spark!(crate::mgr::RevealForm, mgr:reveal);
 try_from_spark!(crate::mgr::SearchForm, mgr:search, mgr:search_do);
@@ -462,3 +469,4 @@ try_from_spark!(yazi_widgets::input::parser::InsertOpt, input:insert);
 try_from_spark!(yazi_widgets::input::parser::KillOpt, input:kill);
 try_from_spark!(yazi_widgets::input::parser::MoveOpt, input:move);
 try_from_spark!(yazi_widgets::input::parser::PasteOpt, input:paste);
+try_from_spark!(crate::input::RecallForm, input:recall);

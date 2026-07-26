@@ -1,10 +1,11 @@
 use std::{borrow::Cow, ffi::OsString, hash::{Hash, Hasher}};
 
 use hashbrown::Equivalent;
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use yazi_codegen::FromLuaOwned;
 use yazi_shim::wtf8::FromWtf8Vec;
 
-use crate::{path::{AsPath, Component, PathDyn, PathDynError, PathKind, SetNameError}, strand::AsStrand};
+use crate::{path::{Component, DynPath, PathDyn, PathDynError, PathKind, SetNameError}, strand::AsStrand};
 
 // --- PathBufDyn
 #[derive(Clone, Debug, Eq, FromLuaOwned)]
@@ -19,6 +20,10 @@ impl From<&std::path::Path> for PathBufDyn {
 
 impl From<std::path::PathBuf> for PathBufDyn {
 	fn from(value: std::path::PathBuf) -> Self { Self::Os(value) }
+}
+
+impl From<&std::path::PathBuf> for PathBufDyn {
+	fn from(value: &std::path::PathBuf) -> Self { Self::Os(value.clone()) }
 }
 
 impl From<typed_path::UnixPathBuf> for PathBufDyn {
@@ -47,24 +52,24 @@ impl TryFrom<PathBufDyn> for typed_path::UnixPathBuf {
 
 // --- Hash
 impl Hash for PathBufDyn {
-	fn hash<H: Hasher>(&self, state: &mut H) { self.as_path().hash(state) }
+	fn hash<H: Hasher>(&self, state: &mut H) { self.dyn_path().hash(state) }
 }
 
 // --- PartialEq
 impl PartialEq for PathBufDyn {
-	fn eq(&self, other: &Self) -> bool { self.as_path() == other.as_path() }
+	fn eq(&self, other: &Self) -> bool { self.dyn_path() == other.dyn_path() }
 }
 
 impl PartialEq<PathDyn<'_>> for PathBufDyn {
-	fn eq(&self, other: &PathDyn<'_>) -> bool { self.as_path() == *other }
+	fn eq(&self, other: &PathDyn<'_>) -> bool { self.dyn_path() == *other }
 }
 
 impl PartialEq<PathDyn<'_>> for &PathBufDyn {
-	fn eq(&self, other: &PathDyn<'_>) -> bool { self.as_path() == *other }
+	fn eq(&self, other: &PathDyn<'_>) -> bool { self.dyn_path() == *other }
 }
 
 impl Equivalent<PathDyn<'_>> for PathBufDyn {
-	fn equivalent(&self, key: &PathDyn<'_>) -> bool { self.as_path() == *key }
+	fn equivalent(&self, key: &PathDyn<'_>) -> bool { self.dyn_path() == *key }
 }
 
 impl PathBufDyn {
@@ -125,7 +130,7 @@ impl PathBufDyn {
 	pub fn try_extend<T>(&mut self, paths: T) -> Result<(), PathDynError>
 	where
 		T: IntoIterator,
-		T::Item: AsPath,
+		T::Item: DynPath,
 	{
 		for p in paths {
 			self.try_push(p)?;
@@ -135,9 +140,9 @@ impl PathBufDyn {
 
 	pub fn try_push<T>(&mut self, path: T) -> Result<(), PathDynError>
 	where
-		T: AsPath,
+		T: DynPath,
 	{
-		let path = path.as_path();
+		let path = path.dyn_path();
 		Ok(match self {
 			Self::Os(p) => p.push(path.as_os()?),
 			Self::Unix(p) => p.push(path.encoded_bytes()),
@@ -187,5 +192,31 @@ impl PathBufDyn {
 			PathKind::Os => Self::Os(s.into()),
 			PathKind::Unix => Self::Unix(s.into()),
 		}
+	}
+}
+
+impl Serialize for PathBufDyn {
+	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+		#[derive(Serialize)]
+		struct Shadow<'a> {
+			kind: PathKind,
+			path: &'a [u8],
+		}
+
+		let path = self.dyn_path();
+		Shadow { kind: path.kind(), path: path.encoded_bytes() }.serialize(serializer)
+	}
+}
+
+impl<'de> Deserialize<'de> for PathBufDyn {
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		#[derive(Deserialize)]
+		struct Shadow {
+			kind: PathKind,
+			path: Vec<u8>,
+		}
+
+		let Shadow { kind, path } = Shadow::deserialize(deserializer)?;
+		Self::with(kind, path).map_err(de::Error::custom)
 	}
 }

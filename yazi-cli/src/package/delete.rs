@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use yazi_fs::{ok_or_not_found, provider::{Provider, local::Local}};
+use yazi_fs::{engine::{Engine, local::Local}, ok_or_not_found};
 use yazi_macro::outln;
 
 use super::Dependency;
@@ -17,18 +17,24 @@ impl Dependency {
 		}
 
 		self.delete_assets().await?;
-		self.delete_sources().await?;
-		Ok(())
+		if !self.delete_sources().await? {
+			outln!(
+				"For safety, user data will be preserved, manually delete them from: {}",
+				dir.display()
+			)?;
+		}
+
+		Ok(outln!("Done!")?)
 	}
 
 	pub(super) async fn delete_assets(&self) -> Result<()> {
 		let assets = self.target().join("assets");
 		match tokio::fs::read_dir(&assets).await {
 			Ok(mut it) => {
-				while let Some(entry) = it.next_entry().await? {
-					remove_sealed(&entry.path())
+				while let Some(dent) = it.next_entry().await? {
+					remove_sealed(&dent.path())
 						.await
-						.with_context(|| format!("failed to remove `{}`", entry.path().display()))?;
+						.with_context(|| format!("failed to remove `{}`", dent.path().display()))?;
 				}
 			}
 			Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -39,7 +45,7 @@ impl Dependency {
 		Ok(())
 	}
 
-	pub(super) async fn delete_sources(&self) -> Result<()> {
+	pub(super) async fn delete_sources(&self) -> Result<bool> {
 		let dir = self.target();
 		let files =
 			if self.is_flavor { Self::flavor_files() } else { Self::plugin_files(&dir).await? };
@@ -49,15 +55,6 @@ impl Dependency {
 				.with_context(|| format!("failed to delete `{}`", path.display()))?;
 		}
 
-		if ok_or_not_found(Local::regular(&dir).remove_dir().await).is_ok() {
-			outln!("Done!")?;
-		} else {
-			outln!(
-				"Done!
-For safety, user data has been preserved, please manually delete them within: {}",
-				dir.display()
-			)?;
-		}
-		Ok(())
+		Ok(ok_or_not_found(Local::regular(&dir).remove_dir().await).is_ok())
 	}
 }
