@@ -1,9 +1,9 @@
 use anyhow::Result;
-use yazi_core::{Invalidator, Reconciler, tab::Folder};
+use yazi_core::{Invalidator, Reconciler};
 use yazi_fs::FilesOp;
 use yazi_macro::{act, render, succ};
 use yazi_parser::mgr::UpdateFilesForm;
-use yazi_shared::{data::Data, url::{UrlLike, UrlMapExt}};
+use yazi_shared::{data::Data, url::UrlLike};
 use yazi_watcher::local::LINKED;
 
 use crate::{Actor, Ctx};
@@ -58,7 +58,7 @@ impl UpdateFiles {
 	fn update_parent(cx: &mut Ctx, op: FilesOp) -> Result<Data> {
 		let tab = cx.tab_mut();
 
-		let key = tab.current.url.entry_key();
+		let key = tab.current.url.key();
 		let leave = matches!(op, FilesOp::Deleting(_, ref keys) if keys.contains(&key));
 
 		if let Some(f) = tab.parent.as_mut() {
@@ -88,7 +88,7 @@ impl UpdateFiles {
 
 	fn update_hovered(cx: &mut Ctx, op: FilesOp) -> Result<Data> {
 		let (id, url) = (cx.tab().id, op.cwd());
-		let folder = cx.tab_mut().history.get_or_insert_with(url, |u| Folder::from(u));
+		let (folder, _) = cx.tab_mut().history.ensure(url);
 
 		if folder.update_pub(id, op) {
 			act!(mgr:peek, cx, true)?;
@@ -97,12 +97,18 @@ impl UpdateFiles {
 	}
 
 	fn update_history(cx: &mut Ctx, op: FilesOp) -> Result<Data> {
-		let tab = &mut cx.tab_mut();
-		let leave = tab.parent.as_ref().and_then(|f| f.url.pair2()).is_some_and(
-			|(pp, key)| matches!(&op, FilesOp::Deleting(parent, keys) if parent == pp && keys.contains(&key)),
+		let tab = cx.tab_mut();
+		let leave = tab.parent.as_ref().and_then(|f| f.url.pair()).is_some_and(
+			|(t, key)| matches!(&op, FilesOp::Deleting(trail, keys) if trail == t && keys.contains(&key)),
 		);
 
-		tab.history.get_or_insert_with(op.cwd(), |u| Folder::from(u)).update_pub(tab.id, op);
+		let (folder, evicted) = tab.history.ensure(op.cwd());
+		folder.update_pub(tab.id, op);
+
+		if let Some(evicted) = evicted.filter(|f| tab.hovered_url() == Some(&f.url)) {
+			tab.history.insert(evicted);
+		}
+
 		if leave {
 			act!(mgr:leave, cx)?;
 		}

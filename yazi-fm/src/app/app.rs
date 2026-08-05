@@ -4,7 +4,7 @@ use anyhow::Result;
 use tokio::{select, sync::mpsc, time::sleep};
 use yazi_actor::Ctx;
 use yazi_core::Core;
-use yazi_macro::act;
+use yazi_macro::{act, render, succ};
 use yazi_shared::{data::Data, event::{Event, NEED_RENDER}};
 use yazi_tui::Raterm;
 
@@ -59,8 +59,8 @@ impl App {
 	fn bootstrap(&mut self) -> Result<Data> {
 		let cx = &mut Ctx::active(&mut self.core, &mut self.term);
 		act!(app:bootstrap, cx)?;
-
-		self.render(false)
+		act!(app:reflow, cx, crate::Root::reflow as fn(_) -> _)?;
+		succ!(render!())
 	}
 
 	async fn drain(&mut self, rx: &mut mpsc::UnboundedReceiver<Event>) -> Result<bool> {

@@ -1,9 +1,11 @@
 use anyhow::Result;
 use yazi_actor::Ctx;
 use yazi_config::{THEME, build_flavor};
+use yazi_dds::Pubsub;
 use yazi_emulator::EMULATOR;
-use yazi_macro::{render, succ};
+use yazi_macro::{act, err, render, succ};
 use yazi_parser::VoidForm;
+use yazi_scheduler::NotifyProxy;
 use yazi_shared::data::Data;
 use yazi_shim::serde::Overlay;
 
@@ -16,9 +18,19 @@ impl Actor for Theme {
 
 	const NAME: &str = "theme";
 
-	fn act(_cx: &mut Ctx, _: Self::Form) -> Result<Data> {
-		THEME.overlay(build_flavor(EMULATOR.light, true)?);
+	fn act(cx: &mut Ctx, _: Self::Form) -> Result<Data> {
+		match build_flavor(EMULATOR.load().light().unwrap_or_default()) {
+			Ok(theme) => THEME.overlay(theme),
+			Err(e) => succ!(NotifyProxy::push_error("Theme load failed", format!("{e:#}"))),
+		};
+
 		yazi_plugin::theme::reset()?;
+		err!(Pubsub::pub_after_theme());
+
+		act!(mgr:peek, cx, true)?;
+		if cx.tab().spot.visible() {
+			act!(mgr:spot, cx, true)?;
+		}
 
 		succ!(render!());
 	}

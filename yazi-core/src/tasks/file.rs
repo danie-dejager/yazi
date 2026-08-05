@@ -1,5 +1,5 @@
 use tracing::debug;
-use yazi_scheduler::file::FileInCut;
+use yazi_scheduler::file::{FileInCopy, FileInCut, FileInLink};
 use yazi_shared::url::{UrlBuf, UrlLike};
 
 use super::Tasks;
@@ -33,12 +33,12 @@ impl Tasks {
 			if force && u == to {
 				debug!("file_copy: same file, skip {to:?}");
 			} else {
-				self.scheduler.file_copy(u.clone(), to, force, follow);
+				self.scheduler.file_copy(FileInCopy::new(u.clone(), to, force, follow));
 			}
 		}
 	}
 
-	pub fn file_link(&self, src: &Yanked, dest: &UrlBuf, relative: bool, force: bool) {
+	pub fn file_link(&self, src: &Yanked, dest: &UrlBuf, relative: bool, force: bool, follow: bool) {
 		self.scheduler.behavior.reset();
 
 		for u in src.urls() {
@@ -49,7 +49,7 @@ impl Tasks {
 			if force && u == to {
 				debug!("file_link: same file, skip {to:?}");
 			} else {
-				self.scheduler.file_link(u.clone(), to, relative, force);
+				self.scheduler.file_link(FileInLink::new(u.clone(), to, relative, force, follow));
 			}
 		}
 	}

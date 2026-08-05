@@ -1,5 +1,6 @@
+use hashbrown::HashSet;
 use yazi_fs::FilesOp;
-use yazi_shared::url::{UrlBuf, UrlLike};
+use yazi_shared::{path::PathBufDyn, url::{UrlBuf, UrlLike}};
 
 use crate::{mgr::Mgr, tab::Tab};
 
@@ -12,10 +13,8 @@ impl<'a> Invalidator<'a> {
 
 	pub fn apply(&mut self, op: &FilesOp) {
 		match op {
-			FilesOp::Deleting(parent, keys) => {
-				for url in keys.iter().filter_map(|key| parent.try_join(key).ok()) {
-					self.invalidate(&url);
-				}
+			FilesOp::Deleting(trail, keys) => {
+				self.invalidate_keys(trail, keys);
 			}
 			FilesOp::Upserting(_, files) => {
 				for file in files.values() {
@@ -37,6 +36,20 @@ impl<'a> Invalidator<'a> {
 			if let Some(folder) = tab.history.get_mut(url) {
 				folder.invalidate();
 			}
+		}
+	}
+
+	fn invalidate_keys(&mut self, trail: &UrlBuf, keys: &HashSet<PathBufDyn>) {
+		let matches = |url: &UrlBuf| url.pair().is_some_and(|(t, k)| t == *trail && keys.contains(&k));
+
+		for tab in &mut *self.tabs {
+			if matches(&tab.current.url) {
+				tab.current.invalidate();
+			}
+			if let Some(parent) = tab.parent.as_mut().filter(|f| matches(&f.url)) {
+				parent.invalidate();
+			}
+			tab.history.for_each_mut(trail, keys, |folder| folder.invalidate());
 		}
 	}
 }

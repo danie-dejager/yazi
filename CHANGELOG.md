@@ -15,10 +15,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Added
 
 - Drag and drop ([#4005])
-- Trash bin ([#4144])
+- Trash bin ([#4144], [#4204])
 - Bulk create ([#3793])
 - Make help menu a command palette ([#4074])
 - Input history ([#4104])
+- Automatic dark/light theme switching ([#4196])
 - Experimental `%y`, `%Y`, `%t`, `%T`, `%yN`, `%YN`, `%tN`, `%TN` shell formatting parameters ([#4108])
 - Custom VFS provider ([#4118])
 - Make visual mode support wraparound scrolling ([#4101])
@@ -26,14 +27,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Context-aware icons for inputs ([#4080])
 - Show file icons in trash/delete/overwrite confirmations ([#4096])
 - Dynamic keymap Lua API ([#4031])
+- Configurable border for the which component ([#4189])
+- Official APT repository for Debian and Ubuntu ([#4198])
+- New `--follow` option for the `link` action ([#4184])
 - New `ui.Input` element ([#4040])
+- New `theme` DDS event for plugins to watch theme reloads ([#4203])
 - Image preview with Überzug++ on Niri ([#3990])
+- Unicode normalization for user regex patterns in `find`, `filter`, and `search` actions ([#4177])
 - New gait for input `backward` and `forward` actions ([#4012])
 
 ### Changed
 
 - Rename SFTP sections in `vfs.toml` from `[services.domain]` to `[sftp.domain]` ([#4120]).
 - Rename `<BackTab>` to `<S-Tab>` ([#3989])
+- Make `rt.term.light` a function that returns the latest color scheme on each call ([#4196])
 - Remove `Url.is_archive` - `archive://` is no longer built in and can now be registered by plugins ([#4118])
 - Make `mgr::Yanked`, `tab::Selected`, and the `@yank` DDS event return `File` instead of `Url` from `__pairs()` ([#4096])
 - Remove `help:filter` action since the filter input is now always available ([#4074])
@@ -49,6 +56,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Fixed
 
+- Refresh file list after deleting a file from search view ([#4174])
+- Work around image previews broken by a `tmux` 3.7b redraw bug ([#4195])
 - Normalize `\\?\`-prefixed Verbatim paths when creating relative symlinks on Windows ([#4067])
 - Keep package hashes indifferent to line endings when `ya pkg` pulls packages ([#4064])
 - Use WebP as `magick` preset preloader cache format to keep image transparency ([#4065])
@@ -57,6 +66,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Improved
 
 - Eliminate hacks in image and UI conflict resolution ([#4022])
+- Make terminal capability probing async ([#4194])
 - Enable SSO (small string optimization) for custom schemes and custom styles ([#4164])
 
 ## [v26.5.6]
@@ -1786,3 +1796,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#4120]: https://github.com/sxyazi/yazi/pull/4120
 [#4144]: https://github.com/sxyazi/yazi/pull/4144
 [#4169]: https://github.com/sxyazi/yazi/pull/4169
+[#4174]: https://github.com/sxyazi/yazi/pull/4174
+[#4177]: https://github.com/sxyazi/yazi/pull/4177
+[#4184]: https://github.com/sxyazi/yazi/pull/4184
+[#4189]: https://github.com/sxyazi/yazi/pull/4189
+[#4194]: https://github.com/sxyazi/yazi/pull/4194
+[#4195]: https://github.com/sxyazi/yazi/pull/4195
+[#4196]: https://github.com/sxyazi/yazi/pull/4196
+[#4198]: https://github.com/sxyazi/yazi/pull/4198
+[#4203]: https://github.com/sxyazi/yazi/pull/4203
+[#4204]: https://github.com/sxyazi/yazi/pull/4204

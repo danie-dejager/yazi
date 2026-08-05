@@ -37,13 +37,13 @@ impl Actor for Cd {
 		// Take parent to history
 		let tab = cx.tab_mut();
 		if let Some(t) = tab.parent.take() {
-			tab.history.insert(t.url.clone(), t);
+			tab.history.insert(t);
 		}
 
 		// Current
 		let rep = tab.history.remove_or(&form.target);
 		let rep = mem::replace(&mut tab.current, rep);
-		tab.history.insert(rep.url.clone(), rep);
+		tab.history.insert(rep);
 
 		// Parent
 		if let Some(parent) = form.target.parent() {
@@ -81,8 +81,8 @@ impl Cd {
 							return MgrProxy::cd(&url, CdSource::Cd);
 						}
 
-						if let Some((p, k)) = url.pair2() {
-							FilesOp::Upserting(p.into(), [(k.into(), file)].into()).emit();
+						if let Some((t, k)) = url.pair() {
+							FilesOp::Upserting(t.into(), [(k.into(), file)].into()).emit();
 						}
 						MgrProxy::reveal(url);
 					}
