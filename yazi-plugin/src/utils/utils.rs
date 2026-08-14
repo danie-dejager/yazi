@@ -53,7 +53,9 @@ pub fn compose(
 			b"co" => Utils::co(lua)?,
 			b"sync" => Utils::sync(lua)?,
 			b"async" => Utils::r#async(lua, isolate)?,
+			b"async_blocking" => Utils::async_blocking(lua)?,
 			b"chan" => Utils::chan(lua)?,
+			b"chunk" => Utils::chunk(lua)?,
 			b"join" => Utils::join(lua)?,
 			b"select" => Utils::select(lua)?,
 
@@ -65,12 +67,14 @@ pub fn compose(
 			b"hash" => Utils::hash(lua)?,
 			b"quote" => Utils::quote(lua)?,
 			b"clipboard" => Utils::clipboard(lua)?,
+			b"base64_decode" => Utils::base64_decode(lua)?,
 			b"percent_encode" => Utils::percent_encode(lua)?,
 			b"percent_decode" => Utils::percent_decode(lua)?,
 
 			// Time
 			b"time" => Utils::time(lua)?,
 			b"sleep" => Utils::sleep(lua)?,
+			b"throttle" => Utils::throttle(lua)?,
 
 			// User
 			#[cfg(unix)]
@@ -83,6 +87,9 @@ pub fn compose(
 			b"group_name" => Utils::group_name(lua)?,
 			#[cfg(unix)]
 			b"host_name" => Utils::host_name(lua)?,
+
+			// HTTP
+			b"http" => return Utils::http(lua)?.into_lua(lua),
 
 			// Task
 			b"task" => Utils::task(lua)?,

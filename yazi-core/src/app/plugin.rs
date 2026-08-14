@@ -5,17 +5,21 @@ use dyn_clone::DynClone;
 use hashbrown::HashMap;
 use mlua::{Lua, Table};
 use serde::Deserialize;
-use strum::EnumString;
+use strum::{EnumString, IntoStaticStr};
+use yazi_binding::Scope;
 use yazi_macro::impl_data_any;
+use yazi_runner::loader::Chunk;
 use yazi_scheduler::plugin::PluginInEntry;
 use yazi_shared::{data::{Data, DataKey}, event::{ActionCow, Cmd}};
 use yazi_shim::SStr;
 
 #[derive(Clone, Debug, Default)]
 pub struct PluginOpt {
-	pub id:       SStr,
+	pub name:     SStr,
 	pub args:     HashMap<DataKey, Data>,
 	pub mode:     PluginMode,
+	pub method:   PluginMethod,
+	pub scope:    Scope,
 	pub callback: Option<Box<dyn PluginCallback>>,
 }
 
@@ -25,39 +29,53 @@ impl TryFrom<ActionCow> for PluginOpt {
 	type Error = anyhow::Error;
 
 	fn try_from(mut a: ActionCow) -> Result<Self, Self::Error> {
-		let Some(id) = a.take_first::<SStr>().ok().filter(|s| !s.is_empty()) else {
-			bail!("plugin id cannot be empty");
+		let Some(name) = a.take_first::<SStr>().ok().filter(|s| !s.is_empty()) else {
+			bail!("plugin name cannot be empty");
 		};
 
 		let args = if let Ok(s) = a.second() {
 			let (words, last) = yazi_shared::shell::unix::split(s, true)?;
 			Cmd::parse_args(words, last)?
 		} else {
-			Default::default()
+			a.take_second().unwrap_or_default()
 		};
 
-		let mode = a.str("mode").parse().unwrap_or_default();
-		Ok(Self { id: Self::normalize_id(id), args, mode, callback: a.take_any("callback") })
+		Ok(Self {
+			name: Self::normalize_name(name),
+			args,
+			mode: a.str("mode").parse().unwrap_or_default(),
+			method: a.str("method").parse().unwrap_or_default(),
+			scope: a.take_any("scope").unwrap_or_default(),
+			callback: a.take_any("callback"),
+		})
 	}
 }
 
 impl From<PluginOpt> for PluginInEntry {
 	fn from(value: PluginOpt) -> Self {
-		Self { plugin: value.id, args: value.args, ..Default::default() }
+		Self { plugin: value.name, args: value.args, ..Default::default() }
 	}
 }
 
 impl PluginOpt {
-	pub fn new_callback(id: impl Into<SStr>, f: impl PluginCallback) -> Self {
+	pub fn new_callback(name: impl Into<SStr>, f: impl PluginCallback) -> Self {
 		Self {
-			id: Self::normalize_id(id.into()),
+			name: Self::normalize_name(name.into()),
 			mode: PluginMode::Sync,
 			callback: Some(Box::new(f)),
 			..Default::default()
 		}
 	}
 
-	fn normalize_id(s: SStr) -> SStr {
+	pub fn effective_mode(&self, chunk: &Chunk) -> PluginMode {
+		self.mode.auto_then(match self.method {
+			PluginMethod::Entry => chunk.sync_entry,
+			PluginMethod::Peek => chunk.sync_peek,
+			PluginMethod::Seek => true,
+		})
+	}
+
+	fn normalize_name(s: SStr) -> SStr {
 		match s {
 			Cow::Borrowed(s) => s.strip_suffix(".main").unwrap_or(s).into(),
 			Cow::Owned(mut s) => {
@@ -86,6 +104,17 @@ impl PluginMode {
 		}
 		if sync { Self::Sync } else { Self::Async }
 	}
+}
+
+// --- Method
+#[derive(Clone, Copy, Debug, Default, Deserialize, EnumString, Eq, IntoStaticStr, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum PluginMethod {
+	#[default]
+	Entry,
+	Peek,
+	Seek,
 }
 
 // --- Callback

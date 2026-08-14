@@ -19,9 +19,8 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            gcc: gcc-aarch64-linux-gnu
           - os: ubuntu-latest
             target: i686-unknown-linux-gnu
             gcc: gcc-i686-linux-gnu
@@ -37,7 +36,6 @@ jobs:
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.os }}
     env:
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
       CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: i686-linux-gnu-gcc
       CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
       CARGO_TARGET_SPARC64_UNKNOWN_LINUX_GNU_LINKER: sparc64-linux-gnu-gcc
@@ -53,7 +51,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.10
+        uses: mozilla-actions/sccache-action@v0.0.11
 
       - name: Build
         run: ./scripts/build.sh ${{ matrix.target }}
@@ -88,22 +86,10 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.10
+        uses: mozilla-actions/sccache-action@v0.0.11
 
       - name: Build
-        run: cargo build --profile release-windows --locked --target ${{ matrix.target }}
-
-      - name: Pack artifact
-        env:
-          TARGET_NAME: yazi-${{ matrix.target }}
-        run: |
-          New-Item -ItemType Directory -Path "${env:TARGET_NAME}\completions"
-          Copy-Item -Path "target\${{ matrix.target }}\release-windows\ya.exe" -Destination ${env:TARGET_NAME}
-          Copy-Item -Path "target\${{ matrix.target }}\release-windows\yazi.exe" -Destination ${env:TARGET_NAME}
-          Copy-Item -Path "yazi-cli\completions\*" -Destination "${env:TARGET_NAME}\completions"
-          Copy-Item -Path "yazi-boot\completions\*" -Destination "${env:TARGET_NAME}\completions"
-          Copy-Item -Path "README.md", "LICENSE" -Destination ${env:TARGET_NAME}
-          Compress-Archive -Path ${env:TARGET_NAME} -DestinationPath "${env:TARGET_NAME}.zip"
+        run: cargo xtask dist --target ${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -128,7 +114,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.10
+        uses: mozilla-actions/sccache-action@v0.0.11
 
       - name: Build
         run: ./scripts/build.sh ${{ matrix.target }}

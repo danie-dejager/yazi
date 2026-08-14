@@ -4,19 +4,19 @@ use anyhow::Result;
 use lru::LruCache;
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
-use tracing::error;
 use yazi_config::Priority;
 use yazi_fs::{FsHash64, file::FileSig};
+use yazi_macro::error;
 use yazi_runner::{RUNNER, preloader::{PreloadError, PreloadJob}};
 use yazi_shared::id::Id;
 
-use crate::{HIGH, LOW, NORMAL, TaskOp, TaskOps, preload::{PreloadIn, PreloadOut}};
+use crate::{HIGH, LOW, Loaded, NORMAL, TaskOp, TaskOps, preload::{PreloadIn, PreloadInPreload, PreloadOut}};
 
 pub struct Preload {
 	ops: TaskOps,
 	tx:  async_priority_channel::Sender<PreloadIn, u8>,
 
-	pub loaded:  Mutex<LruCache<u64, u16>>,
+	pub loaded:  Mutex<LruCache<u64, Loaded>>,
 	pub loading: Mutex<LruCache<u64, Id>>,
 }
 
@@ -34,11 +34,16 @@ impl Preload {
 		}
 	}
 
-	pub(crate) async fn preload(&self, task: PreloadIn) -> Result<(), PreloadOut> {
-		let hash = FileSig(&task.target).hash_u64();
+	pub(crate) async fn preload(&self, task: PreloadInPreload) -> Result<(), PreloadOut> {
+		let hash = FileSig(&task.file).hash_u64();
+		let mut rx = RUNNER
+			.preload(PreloadJob {
+				preloader: task.preloader.clone(),
+				file:      task.file,
+				mime:      task.mime,
+			})
+			.await;
 
-		let mut rx =
-			RUNNER.preload(PreloadJob { preloader: task.preloader.clone(), file: task.target }).await;
 		let state = match rx.recv().await.unwrap_or(Err(PreloadError::Cancelled)) {
 			Ok(state) => state,
 			Err(PreloadError::Cancelled) => Default::default(),
@@ -46,7 +51,7 @@ impl Preload {
 		};
 
 		if !state.complete {
-			self.loaded.lock().get_mut(&hash).map(|x| *x &= !(1 << task.preloader.idx));
+			self.loaded.lock().get_mut(&hash).map(|x| x.clear(task.preloader.idx, task.preloader.rev));
 		}
 		if let Some(e) = state.error {
 			error!("Error when running preloader '{}':\n{e}", task.preloader.name);
@@ -57,11 +62,15 @@ impl Preload {
 }
 
 impl Preload {
-	pub(crate) fn submit(&self, r#in: PreloadIn) {
-		let priority = match r#in.preloader.prio {
-			Priority::Low => LOW,
-			Priority::Normal => NORMAL,
-			Priority::High => HIGH,
+	pub(crate) fn submit(&self, r#in: impl Into<PreloadIn>) {
+		let r#in = r#in.into();
+		let priority = match &r#in {
+			PreloadIn::Preload(r#in) => match r#in.preloader.prio {
+				Priority::Low => LOW,
+				Priority::Normal => NORMAL,
+				Priority::High => HIGH,
+			},
+			PreloadIn::Custom(_) => LOW,
 		};
 
 		_ = self.tx.try_send(r#in, priority);

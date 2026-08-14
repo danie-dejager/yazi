@@ -6,8 +6,7 @@ use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::EnvFilter;
 use yazi_fs::Xdg;
 use yazi_macro::writef;
-use yazi_shared::LOG_LEVEL;
-use yazi_shim::cell::RoCell;
+use yazi_shim::{cell::RoCell, log::LOG_LEVEL};
 use yazi_tty::sequence::{SetFg, SetSgr};
 
 static _GUARD: RoCell<WorkerGuard> = RoCell::new();
@@ -32,7 +31,7 @@ impl Logs {
 		let (non_blocking, guard) = tracing_appender::non_blocking(log_file);
 		tracing_subscriber::fmt()
 			.pretty()
-			.with_env_filter(EnvFilter::new(level))
+			.with_env_filter(EnvFilter::default().add_directive(level.as_ref().parse()?))
 			.with_writer(non_blocking)
 			.with_ansi(cfg!(debug_assertions))
 			.init();

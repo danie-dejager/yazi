@@ -4,11 +4,11 @@ use anyhow::{Result, bail};
 use image::ImageReader;
 use ratatui_core::layout::Rect;
 use tokio::{io::AsyncWriteExt, process::{Child, Command}, sync::mpsc::{self, UnboundedSender}};
-use tracing::{debug, warn};
 use yazi_config::YAZI;
 use yazi_emulator::Dimension;
-use yazi_shared::{LOG_LEVEL, env_exists};
-use yazi_shim::{cell::RoCell, strum::IntoStr};
+use yazi_macro::{debug, warn};
+use yazi_shared::env_exists;
+use yazi_shim::{cell::RoCell, log::LOG_LEVEL, strum::IntoStr};
 
 use crate::{ADAPTOR, drivers::Driver};
 

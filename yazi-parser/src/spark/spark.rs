@@ -97,7 +97,7 @@ pub enum Spark<'a> {
 	UpdateYanked(crate::mgr::UpdateYankedForm<'a>),
 	Upload(crate::mgr::UploadForm),
 	VisualMode(crate::mgr::VisualModeForm),
-	Watch(crate::VoidForm),
+	Watch(crate::mgr::WatchForm),
 	Yank(crate::mgr::YankForm),
 
 	// Cmp
@@ -157,6 +157,7 @@ pub enum Spark<'a> {
 	TasksProcessOpen(crate::tasks::ProcessOpenForm),
 	TasksShow(crate::VoidForm),
 	TasksSpawn(crate::tasks::SpawnForm),
+	TasksOutput(crate::tasks::OutputForm),
 	TasksUpdateSucceed(crate::tasks::UpdateSucceedForm),
 
 	// Which
@@ -183,6 +184,10 @@ impl<'a> Spark<'a> {
 			// mgr:stash
 			IndStash => Self::Stash(<_>::from_lua(value, lua)?),
 			RelayStash => Self::Stash(<_>::from_lua(value, lua)?),
+			// mgr:update_files
+			RelayUpdateFiles => Self::UpdateFiles(<_>::from_lua(value, lua)?),
+			// mgr:watch
+			IndWatch => Self::Watch(<_>::from_lua(value, lua)?),
 			// mgr:quit
 			KeyQuit => Self::Quit(<_>::from_lua(value, lua)?),
 
@@ -355,6 +360,7 @@ impl<'a> IntoLua for Spark<'a> {
 			Self::TasksProcessOpen(b) => b.into_lua(lua),
 			Self::TasksShow(b) => b.into_lua(lua),
 			Self::TasksSpawn(b) => b.into_lua(lua),
+			Self::TasksOutput(b) => b.into_lua(lua),
 			Self::TasksUpdateSucceed(b) => b.into_lua(lua),
 
 			// Which
@@ -384,7 +390,6 @@ try_from_spark!(
 	mgr:search_stop,
 	mgr:suspend,
 	mgr:unyank,
-	mgr:watch,
 	input:remember,
 	which:dismiss
 );
@@ -457,6 +462,7 @@ try_from_spark!(crate::mgr::UpdateSpottedForm, mgr:update_spotted);
 try_from_spark!(crate::mgr::UpdateYankedForm<'a>, mgr:update_yanked);
 try_from_spark!(crate::mgr::UploadForm, mgr:upload);
 try_from_spark!(crate::mgr::VisualModeForm, mgr:visual_mode);
+try_from_spark!(crate::mgr::WatchForm, mgr:watch);
 try_from_spark!(crate::mgr::YankForm, mgr:yank);
 try_from_spark!(crate::notify::PushForm, notify:push);
 try_from_spark!(crate::notify::TickForm, notify:tick);
@@ -465,6 +471,7 @@ try_from_spark!(crate::pick::ShowForm, pick:show);
 try_from_spark!(crate::spot::CopyForm, spot:copy);
 try_from_spark!(crate::tasks::ProcessOpenForm, tasks:process_open);
 try_from_spark!(crate::tasks::SpawnForm, tasks:spawn);
+try_from_spark!(crate::tasks::OutputForm, tasks:output);
 try_from_spark!(crate::tasks::UpdateSucceedForm, tasks:update_succeed);
 try_from_spark!(crate::which::ActivateForm, which:activate);
 try_from_spark!(yazi_dds::Payload<'a>, app:accept_payload);

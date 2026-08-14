@@ -4,17 +4,16 @@ use anyhow::Result;
 use lru::LruCache;
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
-use tracing::error;
 use yazi_config::Priority;
-use yazi_fs::{FsHash64, file::FileSig};
+use yazi_macro::error;
 use yazi_runner::RUNNER;
 
-use crate::{HIGH, LOW, TaskOp, TaskOps, fetch::{FetchIn, FetchOutFetch}};
+use crate::{HIGH, LOW, Loaded, TaskOp, TaskOps, fetch::{FetchIn, FetchInFetch, FetchOutFetch}};
 
 pub struct Fetch {
 	ops:        TaskOps,
 	tx:         async_priority_channel::Sender<FetchIn, u8>,
-	pub loaded: Mutex<LruCache<u64, u16>>,
+	pub loaded: Mutex<LruCache<u64, Loaded>>,
 }
 
 impl Fetch {
@@ -29,18 +28,16 @@ impl Fetch {
 		}
 	}
 
-	pub(crate) async fn fetch(&self, task: FetchIn) -> Result<(), FetchOutFetch> {
+	pub(crate) async fn fetch(&self, task: FetchInFetch) -> Result<(), FetchOutFetch> {
 		let (id, fetcher) = (task.id, task.fetcher.clone());
 
-		let hashes: Vec<_> = task.targets.iter().map(|f| FileSig(f).hash_u64()).collect();
-		let (state, err) = RUNNER.fetch(task.into()).await?;
-
-		let mut loaded = self.loaded.lock();
-		for (_, h) in hashes.into_iter().enumerate().filter(|&(i, _)| !state.get(i)) {
-			loaded.get_mut(&h).map(|x| *x &= !(1 << fetcher.idx));
-		}
-		if let Some(e) = err {
-			error!("Error when running fetcher '{}':\n{e}", fetcher.name);
+		for status in RUNNER.fetch(task.into()).await? {
+			if status.retry {
+				self.loaded.lock().get_mut(&status.hash).map(|x| x.clear(fetcher.idx, fetcher.rev));
+			}
+			if let Some(e) = status.error {
+				error!("Error when running fetcher '{}':\n{e:?}", fetcher.name);
+			}
 		}
 
 		Ok(self.ops.out(id, FetchOutFetch::Succ))
@@ -48,11 +45,15 @@ impl Fetch {
 }
 
 impl Fetch {
-	pub(crate) fn submit(&self, r#in: FetchIn) {
-		let priority = match r#in.fetcher.prio {
-			Priority::Low => LOW,
-			Priority::Normal => HIGH,
-			Priority::High => HIGH,
+	pub(crate) fn submit(&self, r#in: impl Into<FetchIn>) {
+		let r#in = r#in.into();
+		let priority = match &r#in {
+			FetchIn::Fetch(r#in) => match r#in.fetcher.prio {
+				Priority::Low => LOW,
+				Priority::Normal => HIGH,
+				Priority::High => HIGH,
+			},
+			FetchIn::Custom(_) => LOW,
 		};
 
 		_ = self.tx.try_send(r#in, priority);

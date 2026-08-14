@@ -1,7 +1,7 @@
 use std::{fmt::{self, Display}, process::Stdio};
 
 use tokio::{process::Command, time::{Duration, timeout}};
-use tracing::error;
+use yazi_macro::error;
 
 use crate::EMULATOR;
 
@@ -21,7 +21,7 @@ impl Mux {
 				"set",
 				"-p",
 				"allow-passthrough",
-				"on",
+				"all",
 				";",
 				"set",
 				"-s",

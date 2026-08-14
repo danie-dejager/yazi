@@ -14,8 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
-- Drag and drop ([#4005])
-- Trash bin ([#4144], [#4204])
+- Drag and drop ([#4005], [#4225])
+- Trash bin ([#4144], [#4204], [#4212])
 - Bulk create ([#3793])
 - Make help menu a command palette ([#4074])
 - Input history ([#4104])
@@ -27,11 +27,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Context-aware icons for inputs ([#4080])
 - Show file icons in trash/delete/overwrite confirmations ([#4096])
 - Dynamic keymap Lua API ([#4031])
+- Dynamic Lua API for preloader, spotter, fetcher ([#4235])
 - Configurable border for the which component ([#4189])
 - Official APT repository for Debian and Ubuntu ([#4198])
 - New `--follow` option for the `link` action ([#4184])
 - New `ui.Input` element ([#4040])
 - New `theme` DDS event for plugins to watch theme reloads ([#4203])
+- Preview images in Zellij via kitty graphics protocol ([#4216])
 - Image preview with Überzug++ on Niri ([#3990])
 - Unicode normalization for user regex patterns in `find`, `filter`, and `search` actions ([#4177])
 - New gait for input `backward` and `forward` actions ([#4012])
@@ -68,6 +70,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Eliminate hacks in image and UI conflict resolution ([#4022])
 - Make terminal capability probing async ([#4194])
 - Enable SSO (small string optimization) for custom schemes and custom styles ([#4164])
+- Reduce binary size and build time ([#4228])
 
 ## [v26.5.6]
 
@@ -1795,6 +1798,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#4118]: https://github.com/sxyazi/yazi/pull/4118
 [#4120]: https://github.com/sxyazi/yazi/pull/4120
 [#4144]: https://github.com/sxyazi/yazi/pull/4144
+[#4164]: https://github.com/sxyazi/yazi/pull/4164
 [#4169]: https://github.com/sxyazi/yazi/pull/4169
 [#4174]: https://github.com/sxyazi/yazi/pull/4174
 [#4177]: https://github.com/sxyazi/yazi/pull/4177
@@ -1806,3 +1810,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#4198]: https://github.com/sxyazi/yazi/pull/4198
 [#4203]: https://github.com/sxyazi/yazi/pull/4203
 [#4204]: https://github.com/sxyazi/yazi/pull/4204
+[#4212]: https://github.com/sxyazi/yazi/pull/4212
+[#4216]: https://github.com/sxyazi/yazi/pull/4216
+[#4225]: https://github.com/sxyazi/yazi/pull/4225
+[#4228]: https://github.com/sxyazi/yazi/pull/4228
+[#4235]: https://github.com/sxyazi/yazi/pull/4235

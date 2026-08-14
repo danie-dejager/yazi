@@ -1,7 +1,7 @@
 use std::{env, ops::{Deref, DerefMut}};
 
-use tracing::warn;
 use yazi_emulator::{Brand, Emulator};
+use yazi_macro::warn;
 use yazi_shared::env_exists;
 
 use crate::drivers::{Driver as D, Ueberzug};
@@ -23,6 +23,12 @@ impl From<&Emulator> for Drivers {
 		match value.brand {
 			Brand::Unknown => Self(match (value.kgp, value.sixel) {
 				(true, true) => vec![D::Sixel, D::KgpOld],
+				(true, false) => vec![D::KgpOld],
+				(false, true) => vec![D::Sixel],
+				(false, false) => vec![],
+			}),
+			Brand::Zellij => Self(match (value.kgp, value.sixel) {
+				(true, true) => vec![D::KgpOld, D::Sixel],
 				(true, false) => vec![D::KgpOld],
 				(false, true) => vec![D::Sixel],
 				(false, false) => vec![],
@@ -53,6 +59,7 @@ impl From<Brand> for Drivers {
 			B::Hyper => vec![D::Iip, D::Sixel],
 			B::Mintty => vec![D::Iip],
 			B::Tmux => vec![],
+			B::Zellij => vec![],
 			B::VTerm => vec![],
 			B::Apple => vec![],
 			B::Urxvt => vec![],
@@ -64,9 +71,7 @@ impl From<Brand> for Drivers {
 impl Drivers {
 	pub fn matches(emu: &Emulator) -> D {
 		let mut drivers: Self = emu.into();
-		if env_exists("ZELLIJ_SESSION_NAME") {
-			drivers.retain(|p| *p == D::Sixel);
-		} else if emu.sixel && emu.mux.is_some_and(|mux| mux.sixel) {
+		if emu.sixel && emu.mux.is_some_and(|mux| mux.sixel) {
 			return D::Sixel;
 		} else if emu.mux.is_some() {
 			drivers.retain(|p| *p != D::KgpOld);
