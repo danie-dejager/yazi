@@ -12,6 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+### Fixed
+
+- Assertion failure on expanding URLs with variables containing absolute paths ([#4256])
+- Avoid flicker caused by screen clear on final response from terminal ([#4250])
+- Fall back when `vergen` cannot determine Git SHA ([#4252])
+
+## [v26.8.15]
+
 ### Added
 
 - Drag and drop ([#4005], [#4225])
@@ -1130,6 +1138,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [v26.1.4]: https://github.com/sxyazi/yazi/compare/v25.12.29...v26.1.4
 [v26.1.22]: https://github.com/sxyazi/yazi/compare/v26.1.4...v26.1.22
 [v26.5.6]: https://github.com/sxyazi/yazi/compare/v26.1.22...v26.5.6
+[v26.8.15]: https://github.com/sxyazi/yazi/compare/v26.5.6...v26.8.15
 [#4]: https://github.com/sxyazi/yazi/pull/4
 [#5]: https://github.com/sxyazi/yazi/pull/5
 [#6]: https://github.com/sxyazi/yazi/pull/6
@@ -1815,3 +1824,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#4225]: https://github.com/sxyazi/yazi/pull/4225
 [#4228]: https://github.com/sxyazi/yazi/pull/4228
 [#4235]: https://github.com/sxyazi/yazi/pull/4235
+[#4250]: https://github.com/sxyazi/yazi/pull/4250
+[#4252]: https://github.com/sxyazi/yazi/pull/4252
+[#4256]: https://github.com/sxyazi/yazi/pull/4256
