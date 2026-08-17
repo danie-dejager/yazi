@@ -38,8 +38,9 @@ terminal file management experience.
 %autosetup -n yazi-%{version}
 
 %build
-# ---------------- Toolchain selection ----------------
+export VERGEN_GIT_SHA="%{version}"
 
+# ---------------- Toolchain selection ----------------
 %if 0%{?use_rustup}
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 export PATH="$PATH:$HOME/.cargo/bin"
@@ -68,7 +69,7 @@ install -Dpm0755 target/release/ya   %{buildroot}%{_bindir}/ya
 %changelog
 * Mon Aug 17 2026 - Danie de Jager <danie.dejager@gmail.com> - 26.8.15-2
 * Wed Aug 05 2026 - Danie de Jager <danie.dejager@gmail.com> - 26.5.6-2
-* Wed Apr 06 2026 - Danie de Jager <danie.dejager@gmail.com> - 26.5.6-1
+* Mon Apr 06 2026 - Danie de Jager <danie.dejager@gmail.com> - 26.5.6-1
 * Thu Jan 22 2026 - Danie de Jager <danie.dejager@gmail.com> - 26.1.22-1
 * Mon Jan 05 2026 - Danie de Jager <danie.dejager@gmail.com> - 26.1.4-1
 - Unified spec for RHEL 9/10 and Amazon Linux 2023
