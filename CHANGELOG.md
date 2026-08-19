@@ -18,6 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Avoid flicker caused by screen clear on final response from terminal ([#4250])
 - Fall back when `vergen` cannot determine Git SHA ([#4252])
 
+### Improved
+
+- Send terminal probe requests immediately at startup ([#4260])
+- Tune light/dark theme detection ([#4265])
+
 ## [v26.8.15]
 
 ### Added
@@ -1827,3 +1832,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#4250]: https://github.com/sxyazi/yazi/pull/4250
 [#4252]: https://github.com/sxyazi/yazi/pull/4252
 [#4256]: https://github.com/sxyazi/yazi/pull/4256
+[#4260]: https://github.com/sxyazi/yazi/pull/4260
+[#4265]: https://github.com/sxyazi/yazi/pull/4265
