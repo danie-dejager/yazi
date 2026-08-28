@@ -1,13 +1,14 @@
 use std::{iter::Chain, ops::Range};
 
+use mlua::{UserData, UserDataFields};
 use yazi_widgets::Step;
 
 pub type VisualIndices = Chain<Range<usize>, Range<usize>>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Visual {
-	start: usize,
-	wraps: isize,
+	pub start: usize,
+	pub wraps: isize,
 }
 
 impl Visual {
@@ -26,7 +27,7 @@ impl Visual {
 		first.contains(&index) || second.contains(&index)
 	}
 
-	pub fn indices(&self, end: usize, len: usize) -> VisualIndices {
+	pub(crate) fn indices(&self, end: usize, len: usize) -> VisualIndices {
 		let (first, second) = self.ranges(end, len);
 		first.chain(second)
 	}
@@ -45,5 +46,12 @@ impl Visual {
 			-1 if end > start + 1 => (0..start + 1, end..len),
 			_ => (0..len, 0..0),
 		}
+	}
+}
+
+impl UserData for Visual {
+	fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
+		fields.add_field_method_get("start", |_, me| Ok(me.start));
+		fields.add_field_method_get("wraps", |_, me| Ok(me.wraps));
 	}
 }
