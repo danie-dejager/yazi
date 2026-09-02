@@ -14,10 +14,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Fixed
 
+- Compatibility with legacy Git symlinks in package cache ([#4319])
+
+## [v26.9.1]
+
+### Fixed
+
 - Assertion failure on expanding URLs with variables containing absolute paths ([#4256])
 - Correct open rule matching for trashed directories ([#4268])
+- Lock directories under timeless mounts on first peek ([#4306])
 - Honor associated text when matching character keybindings ([#4279])
 - Materialize Git symlinks for consistent hashes ([#4276])
+- Prune stale backstack entries on file invalidation ([#4309])
 - Wait for terminal probe echo back before stopping instance ([#4271])
 - Avoid flicker caused by screen clear on final response from terminal ([#4250])
 - Fall back when `vergen` cannot determine Git SHA ([#4252])
@@ -1149,6 +1157,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [v26.1.22]: https://github.com/sxyazi/yazi/compare/v26.1.4...v26.1.22
 [v26.5.6]: https://github.com/sxyazi/yazi/compare/v26.1.22...v26.5.6
 [v26.8.15]: https://github.com/sxyazi/yazi/compare/v26.5.6...v26.8.15
+[v26.9.1]: https://github.com/sxyazi/yazi/compare/v26.8.15...v26.9.1
 [#4]: https://github.com/sxyazi/yazi/pull/4
 [#5]: https://github.com/sxyazi/yazi/pull/5
 [#6]: https://github.com/sxyazi/yazi/pull/6
@@ -1844,3 +1853,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#4276]: https://github.com/sxyazi/yazi/pull/4276
 [#4279]: https://github.com/sxyazi/yazi/pull/4279
 [#4294]: https://github.com/sxyazi/yazi/pull/4294
+[#4306]: https://github.com/sxyazi/yazi/pull/4306
+[#4309]: https://github.com/sxyazi/yazi/pull/4309
+[#4319]: https://github.com/sxyazi/yazi/pull/4319
