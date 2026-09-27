@@ -4,7 +4,7 @@ use hashbrown::{HashMap, HashSet};
 use yazi_shared::{id::Id, path::{PathBufDyn, PathDyn, PathLike}};
 
 use super::{FilesSorter, Filter};
-use crate::{FILES_TICKET, SortBy, file::File};
+use crate::{SortBy, file::File, op::FILES_TICKET};
 
 #[derive(Default)]
 pub struct Entries {
@@ -15,6 +15,7 @@ pub struct Entries {
 	pub revision: u64,
 
 	pub sizes: HashMap<PathBufDyn, u64>,
+	pub ranks: HashMap<PathBufDyn, i64>,
 
 	sorter:      FilesSorter,
 	filter:      Option<Filter>,
@@ -84,13 +85,38 @@ impl Entries {
 		}
 	}
 
-	pub fn update_ioerr(&mut self) {
+	pub fn update_rank(&mut self, mut ranks: HashMap<PathBufDyn, i64>) {
+		let mut changed = false;
+
+		if self.ranks.is_empty() {
+			ranks.retain(|key, rank| *rank != 0 && !key.is_empty());
+			(changed, self.ranks) = (!ranks.is_empty(), mem::take(&mut ranks));
+		}
+
+		for (key, rank) in ranks {
+			if key.is_empty() {
+				continue;
+			}
+
+			changed |= if rank == 0 {
+				self.ranks.remove(&key).is_some()
+			} else {
+				self.ranks.insert(key, rank) != Some(rank)
+			};
+		}
+
+		if changed && self.sorter.by == SortBy::Custom {
+			self.revision += 1;
+		}
+	}
+
+	pub fn update_fail(&mut self) {
 		self.ticket = FILES_TICKET.next();
 		self.hidden.clear();
 		self.items.clear();
 	}
 
-	pub fn update_creating(&mut self, files: Vec<File>) {
+	pub fn update_create(&mut self, files: Vec<File>) {
 		if files.is_empty() {
 			return;
 		}
@@ -119,7 +145,7 @@ impl Entries {
 		}
 	}
 
-	pub fn update_deleting(&mut self, mut keys: HashSet<PathBufDyn>) -> Vec<usize> {
+	pub fn update_delete(&mut self, mut keys: HashSet<PathBufDyn>) -> Vec<usize> {
 		keys.retain(|k| !k.is_empty());
 		let mut deleted = Vec::with_capacity(keys.len());
 
@@ -143,7 +169,7 @@ impl Entries {
 		deleted
 	}
 
-	pub fn update_updating(
+	pub fn update_existing(
 		&mut self,
 		mut files: HashMap<PathBufDyn, File>,
 	) -> (HashMap<PathBufDyn, File>, HashMap<PathBufDyn, File>) {
@@ -157,7 +183,7 @@ impl Entries {
 				let mut b = true;
 				for i in 0..$dist.len() {
 					if let Some(f) = $src.remove(&$dist[i].key()) {
-						b = b && $dist[i].cha.hits(f.cha);
+						b = b && $dist[i].hits(&f);
 						b = b && $dist[i].key() == f.key();
 
 						$dist[i] = f;
@@ -189,17 +215,17 @@ impl Entries {
 		(hidden, items)
 	}
 
-	pub fn update_upserting(&mut self, mut files: HashMap<PathBufDyn, File>) {
+	pub fn update_upsert(&mut self, mut files: HashMap<PathBufDyn, File>) {
 		files.retain(|k, f| !k.is_empty() && !f.key().is_empty());
 		if files.is_empty() {
 			return;
 		}
 
-		self.update_deleting(
+		self.update_delete(
 			files.iter().filter(|&(k, f)| k != f.key()).map(|(_, f)| f.key().into()).collect(),
 		);
 
-		let (hidden, items) = self.update_updating(files);
+		let (hidden, items) = self.update_existing(files);
 		if hidden.is_empty() && items.is_empty() {
 			return;
 		}
@@ -219,7 +245,7 @@ impl Entries {
 		}
 
 		self.version = self.revision;
-		self.sorter.sort(&mut self.items, &self.sizes);
+		self.sorter.sort(&mut self.items, &self.sizes, &self.ranks);
 		true
 	}
 
@@ -237,6 +263,9 @@ impl Entries {
 
 impl Entries {
 	// --- Items
+	#[inline]
+	pub fn all(&self) -> impl Iterator<Item = &File> { self.items.iter().chain(&self.hidden) }
+
 	#[inline]
 	pub fn position(&self, key: PathDyn) -> Option<usize> {
 		if key.is_empty() { None } else { self.iter().position(|f| f.key() == key) }
@@ -274,14 +303,14 @@ impl Entries {
 			self.hidden = hidden;
 			if !items.is_empty() {
 				self.items.extend(items);
-				self.sorter.sort(&mut self.items, &self.sizes);
+				self.sorter.sort(&mut self.items, &self.sizes, &self.ranks);
 			}
 			return true;
 		}
 
 		let it = mem::take(&mut self.items).into_iter().chain(mem::take(&mut self.hidden));
 		(self.hidden, self.items) = self.split_files(it);
-		self.sorter.sort(&mut self.items, &self.sizes);
+		self.sorter.sort(&mut self.items, &self.sizes, &self.ranks);
 		true
 	}
 
