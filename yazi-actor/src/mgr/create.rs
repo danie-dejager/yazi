@@ -7,7 +7,8 @@ use yazi_fs::{file::File, op::FilesOp};
 use yazi_macro::{ok_or_not_found, succ};
 use yazi_parser::mgr::CreateForm;
 use yazi_proxy::{ConfirmProxy, MgrProxy};
-use yazi_shared::{AnyAsciiChar, BytePredictor, data::Data, strand::{StrandBuf, StrandLike}, url::{UrlBuf, UrlLike}};
+use yazi_shared::{data::Data, strand::{StrandBuf, StrandLike}, url::{UrlBuf, UrlLike}};
+use yazi_shim::bytes::{AnyAsciiChar, BytePredictor};
 use yazi_vfs::{VfsFile, engine};
 use yazi_watcher::WATCHER;
 
@@ -65,11 +66,11 @@ impl Create {
 		{
 			ok_or_not_found!(engine::remove_file(&new).await);
 			FilesOp::Delete(trail.into(), [key.into()].into()).emit();
-			engine::create(&new).await?;
+			engine::create_file(&new).await?;
 		} else if let Some(parent) = new.parent() {
 			engine::create_dir_all(parent).await.ok();
 			ok_or_not_found!(engine::remove_file(&new).await);
-			engine::create(&new).await?;
+			engine::create_file(&new).await?;
 		} else {
 			bail!("Cannot create file at root");
 		}
