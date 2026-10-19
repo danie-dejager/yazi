@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Added
 
 - Rclone integration ([#4383])
+- Archive extraction progress ([#4431])
 - Custom sorting ([#4363])
 - Windows drives view ([#4412])
 - Dynamic virtual filesystem Lua API ([#4338])
@@ -22,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Respect user locale date format ([#4395])
 - New `patch` DDS event for reporting incremental changes to files ([#4365])
 - Windows support for `fs.partitions()` ([#4402])
+- Image preview adaptation for `st-graphics` terminal ([#4414])
 
 ### Changed
 
@@ -29,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Return `Time` instead of number from `ya.time()`, `Stat.atime`, `Stat.btime`, `Stat.ctime`, `Stat.mtime` ([#4395])
 - Rename `Spec::is_search` property and `escape --search` action to `Spec::is_view` and `escape --view`, respectively ([#4335])
 - Move `search_title`, `search_origin`, and `search_offset` from `[input]` in `yazi.toml` to `[rg]`/`[fd]` in `theme.toml` as `title` and `position` ([#4335])
+- Remove `[tasks].bizarre_retry` in `yazi.toml` as it's no longer needed ([#4424])
 
 ### Deprecated
 
@@ -43,6 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Improved
 
+- Rearm file copier ([#4424])
 - Switch Lua to generational GC ([#4397])
 - Asyncly parse the entry arguments to avoid blocking app startup ([#4352])
 
@@ -1901,3 +1905,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 [#4397]: https://github.com/sxyazi/yazi/pull/4397
 [#4402]: https://github.com/sxyazi/yazi/pull/4402
 [#4412]: https://github.com/sxyazi/yazi/pull/4412
+[#4414]: https://github.com/sxyazi/yazi/pull/4414
+[#4424]: https://github.com/sxyazi/yazi/pull/4424
+[#4431]: https://github.com/sxyazi/yazi/pull/4431
