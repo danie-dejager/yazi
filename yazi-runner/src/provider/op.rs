@@ -37,7 +37,6 @@ pub enum ProvideOp {
 	// Write chunks carry requested positions, its ACKs carry actual end positions.
 	Write { url: UrlBuf, handle: Handle, stream: mpsc::Receiver<ProvideChunk> },
 	Close { url: UrlBuf, handle: Handle },
-	// CopyTo/CopyFrom streams must yield 0 only after all writes and cleanup succeed.
 	CopyTo { from: UrlBuf, to: UrlBuf, peer: ProvidePeer, attrs: Attrs },
 	CopyFrom { from: UrlBuf, to: UrlBuf, peer: ProvidePeer, attrs: Attrs },
 	SetLen { url: UrlBuf, size: u64, handle: Handle },
@@ -71,7 +70,7 @@ impl ProvideOp {
 
 			Self::Metadata { url, handle } | Self::File { url, handle } => {
 				t.raw_set("url", url)?;
-				handle.map(|h| h.into_table(lua, &t)).transpose()?;
+				handle.map(|h| h.into_table(&t)).transpose()?;
 			}
 			Self::Open { url, attrs, demand } => {
 				t.raw_set("url", url)?;
@@ -90,16 +89,16 @@ impl ProvideOp {
 			Self::Read { url, handle, offset } => {
 				t.raw_set("url", url)?;
 				t.raw_set("offset", Id(offset))?;
-				handle.into_table(lua, &t)?;
+				handle.into_table(&t)?;
 			}
 			Self::Write { url, handle, stream } => {
 				t.raw_set("url", url)?;
 				t.raw_set("stream", MpscRx(stream))?;
-				handle.into_table(lua, &t)?;
+				handle.into_table(&t)?;
 			}
 			Self::Close { url, handle } => {
 				t.raw_set("url", url)?;
-				handle.into_table(lua, &t)?;
+				handle.into_table(&t)?;
 			}
 			Self::CopyTo { from, to, peer, attrs } | Self::CopyFrom { from, to, peer, attrs } => {
 				t.raw_set("from", from)?;
@@ -110,12 +109,12 @@ impl ProvideOp {
 			Self::SetLen { url, size, handle } => {
 				t.raw_set("url", url)?;
 				t.raw_set("size", Id(size))?;
-				handle.into_table(lua, &t)?;
+				handle.into_table(&t)?;
 			}
 			Self::SetAttrs { url, attrs, handle } => {
 				t.raw_set("url", url)?;
 				t.raw_set("attrs", attrs)?;
-				handle.map(|h| h.into_table(lua, &t)).transpose()?;
+				handle.map(|h| h.into_table(&t)).transpose()?;
 			}
 		}
 
