@@ -3,9 +3,9 @@ use std::borrow::Cow;
 use anyhow::{Result, anyhow, bail};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
-use yazi_shim::SStr;
+use yazi_shim::{CompactString, SStr};
 
-use crate::{data::{DataAny, DataKey}, id::Id, path::PathBufDyn, strand::{IntoStrand, StrandBuf}, url::{Url, UrlBuf, UrlCow}};
+use crate::{data::{DataAny, DataKey}, id::Id, path::PathBufDyn, strand::StrandBuf, url::{Url, UrlBuf, UrlCow}};
 
 // --- Data
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -64,6 +64,14 @@ impl From<String> for Data {
 
 impl From<SStr> for Data {
 	fn from(value: SStr) -> Self { Self::String(value) }
+}
+
+impl From<CompactString> for Data {
+	fn from(value: CompactString) -> Self { Self::String(value.into()) }
+}
+
+impl From<&CompactString> for Data {
+	fn from(value: &CompactString) -> Self { Self::from(value.as_str()) }
 }
 
 impl From<HashMap<DataKey, Data>> for Data {
@@ -239,7 +247,7 @@ impl TryFrom<Data> for StrandBuf {
 	fn try_from(value: Data) -> Result<Self, Self::Error> {
 		Ok(match value {
 			Data::String(s) => s.into_owned().into(),
-			Data::Path(p) => p.into_strand(),
+			Data::Path(p) => p.into(),
 			Data::Bytes(b) => Self::Bytes(b),
 			_ => bail!("cannot convert to StrandBuf"),
 		})
@@ -252,7 +260,7 @@ impl TryFrom<&Data> for StrandBuf {
 	fn try_from(value: &Data) -> Result<Self, Self::Error> {
 		Ok(match value {
 			Data::String(s) => s.to_string().into(),
-			Data::Path(p) => p.into_strand(),
+			Data::Path(p) => p.into(),
 			Data::Bytes(b) => Self::Bytes(b.clone()),
 			_ => bail!("cannot convert to StrandBuf"),
 		})

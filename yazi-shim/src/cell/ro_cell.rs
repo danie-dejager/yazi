@@ -37,15 +37,6 @@ impl<T> RoCell<T> {
 	{
 		self.init(f());
 	}
-
-	#[inline]
-	pub fn drop(&self) -> T {
-		unsafe {
-			#[cfg(debug_assertions)]
-			assert!(self.initialized.get().replace(false));
-			self.inner.get().replace(MaybeUninit::uninit()).assume_init()
-		}
-	}
 }
 
 impl<T> Default for RoCell<T> {
